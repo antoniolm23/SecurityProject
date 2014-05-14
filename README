@@ -1,0 +1,20 @@
+Security Project, Author: La Marra Antonio 2014
+
+This is an academic project that involves the usage of a protocol for key establishment between a client and a server.
+Client and server share a secret that can be used in order to establisdh a secure connection between them. 
+
+The protocol has been proved with BAN logic, in this project, in order to guarantee an higher level of secrecy
+I will use also steganography. The library used for encrypting and decrypting data is the OPENSSL library and the code is
+written in C++. 
+
+Order of points to fullfill:
+1) Steganography algorithm 
+2) the part related to encrypting and decrypting
+3) the whole protocol
+4) the exchange of an encrypted file.
+
+Since steganography may or may not be related to encryption (it is not necessarily to encrypt a message that will be included in a stego image)
+I will use this method and I will see what happens. 
+
+
+Bibliography: Steganoflange: a new Image Steganography Algotrith
