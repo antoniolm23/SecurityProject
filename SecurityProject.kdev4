@@ -1,0 +1,4 @@
+[Project]
+Name=SecurityProject
+Manager=KDevCMakeManager
+VersionControl=kdevgit
