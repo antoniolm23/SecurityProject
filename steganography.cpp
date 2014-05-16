@@ -9,6 +9,7 @@
  * @return: the image with the hidden message
  * NOTE: the header of the bitmap file is 54 bits 
  * NOTE: allocated virtual memory
+ * TODO: allow shift of more than one position
  */
 char* steno::LSBSteno(char* message, int* size) {
     
@@ -21,7 +22,7 @@ char* steno::LSBSteno(char* message, int* size) {
     int sizeOfInt = sizeof(int);
     
     //check if there is enough space in the image to put the message and its length
-    if( ((*size + sizeOfInt) * 8) > (len * shift)) {
+    while( ((*size + sizeOfInt) * 8) > (len * shift)) {
         
         return NULL;
         
