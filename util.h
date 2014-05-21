@@ -12,7 +12,13 @@
 #include <stdio.h>
 
 #define TODOLOGIN -1
-#define DONELOGIN 0 
+#define DONELOGIN 0
+#define KEYEXCHANGED 3
+#define NONCEBEGIN 0xff34
+#define keySize 16
+#define pubBits 1024
+#define hashLen 20 //use of sha1 so 20 bytes
+#define maxClientName 30
 
 using namespace std;
 
@@ -27,11 +33,25 @@ enum encryptionMode  {None, Symmetric, Asymmetric};
  */
 struct clientInfo{
     
-    string Name;    //name of the client
-    sockaddr * clientAddr; //address of the client
-    int clientSock; //socket of the client
-    int protoStep;  //step of the protocol
-    int expMsgLen;  //expected message len
+    string Name;            //name of the client
+    sockaddr * clientAddr;  //address of the client
+    int clientSock;         //socket of the client
+    int protoStep;          //step of the protocol
+    int expMsgLen;          //expected message len
+    encryptionMode encrypt; //use encryption?
+    unsigned char secret[hashLen];  //hash of the secret of the client
+    
+};
+
+//client message sent to the server in the 2nd step of the protocol
+struct cliMessage {
+    
+    int nonceClient;
+    int nonceServer;
+    unsigned char key[keySize];
+    unsigned char secret[hashLen];
+    char* padding; //includes the hash of the message
+    
 };
 
 //BEGIN UTILITIES FUNCTION USEFUL IN THE CLEAR
@@ -66,6 +86,6 @@ void printByte(unsigned char*, int);
  * (useful when we need to deal with the exchange of secret messages)
  */
 bool sendBuffer(int,unsigned char*,unsigned int, sockaddr* = 0);
-bool receiveBuffer(int,unsigned char*,unsigned int, sockaddr* = 0);
+bool receiveBuffer(int,unsigned char*,unsigned int*, sockaddr* = 0);
 
 //END CRYPTO UTILITIES FUNCTIONS

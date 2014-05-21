@@ -18,6 +18,6 @@ public:
     steno() {};
     
     //Least Significant Bit Steganography
-    char* LSBSteno(char*, int*); 
-    char* readMessage(const char*, int*);
+    unsigned char* LSBSteno(unsigned char*,unsigned int*); 
+    unsigned char* readMessage(unsigned char*, unsigned int*);
 };

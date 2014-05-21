@@ -6,8 +6,6 @@
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 
-#define keySize 16
-#define pubBits 1024
 /* 
  * This file is related to the generation and management of keys
  * NOTE: 
@@ -29,8 +27,8 @@ public:
     void secretKeyGenerator();
     
     //encrypt and decrypt by means of SECRET KEY
-    unsigned char* secretDecrypt(const unsigned char*, int*);
-    unsigned char* secretEncrypt(const unsigned char*, int*);
+    unsigned char* secretDecrypt(const unsigned char*,unsigned int*, const char* = 0);
+    unsigned char* secretEncrypt(const unsigned char*,unsigned int*, const char* = 0);
     
     //HASH FUNCTIONS
     unsigned char* generateHash(char*, int*);
@@ -38,6 +36,6 @@ public:
     
     //ASYMMETRIC ENCRYPTION
     void asymmetricKeyGenerator();
-    unsigned char* asymmetricDecrypt(const char*, const unsigned char*, int*);
-    unsigned char* asymmetricEncrypt(const char*, const unsigned char*, int*);
+    unsigned char* asymmetricDecrypt(const char*, const unsigned char*,unsigned int*);
+    unsigned char* asymmetricEncrypt(const char*, const unsigned char*,unsigned int*);
 };

@@ -11,7 +11,7 @@
  * NOTE: allocated virtual memory
  * TODO: allow shift of more than one position
  */
-char* steno::LSBSteno(char* message, int* size) {
+unsigned char* steno::LSBSteno(unsigned char* message, unsigned int* size) {
     
     char* image;
     int len;
@@ -77,17 +77,17 @@ char* steno::LSBSteno(char* message, int* size) {
 /* 
  * Read a message hidden inside an image
  * @params:
- *          file: the name of the file from which to read
+ *          buffer: the buffer from which extract the message
  *          size: (OUT) used to return the size of the message
  * @return:
  *          the message read from the image
  * NOTE: 54 bit is the size of the bitmap header
  * NOTE: allocated memory remember to free it
  */
-char* steno::readMessage(const char* file, int* size) {
+unsigned char* steno::readMessage(const unsigned char* buffer,unsigned int* size) {
     
-    int len;
-    char* stenoImage = readFile(file, &len);
+    int len = *size;
+    char* stenoImage = buffer;
     const unsigned char andBit = 0x01;
     
     stenoImage += 54;

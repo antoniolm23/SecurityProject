@@ -190,9 +190,18 @@ bool sendBuffer(int sock,unsigned char* text,unsigned int len, sockaddr* addr) {
     if(sock < 0 || len == 0)
         return false;
     
-    //effective size
-    unsigned int size = sendto(sock, text, len, 0,
-        addr, sizeof(sockaddr));
+    unsigned int size = len;
+    
+    //at first send the size
+    if(sendto(sock, (void*)&size, sizeof(int), 0, addr, 
+        sizeof(sockaddr)) != sizeof(unsigned int)) {
+        
+        return false;
+        
+    }
+    
+    //now send the message
+    size = sendto(sock, text, len, 0, addr, sizeof(sockaddr));
     
     //check the amount of sent data
     if(len == size) 
@@ -206,23 +215,34 @@ bool sendBuffer(int sock,unsigned char* text,unsigned int len, sockaddr* addr) {
  * Redefinition of the recvfrom function
  * @params:
  *          sock: file descriptor on which we do the receive
- *          buf: allocated memory area on which put the received buffer
- *          size: the dimension of the buffer
- *          addr: IP address from which we receive the data
+ *          buf: (OUT) allocated memory area on which put the received buffer
+ *          size: (OUT) the dimension of the received buffer
+ *          addr: (OPTIONAL) IP address from which we receive the data
  * @return:
  *          true if all expected data are received, false otherwise
+ * NOTE: allocated memory for buf
  */
 bool receiveBuffer(int sock, unsigned char* buf,
-                   unsigned int size, sockaddr* addr){
+                   unsigned int* size, sockaddr* addr){
     
     //checking parameters
-    if(sock < 0 || size == 0)
+    if(sock < 0)
         return false;
     
     socklen_t sizeSockAddr = sizeof(sockaddr);
     
+    //receive the dimension of the message
+    if(recvfrom(sock, (void*)size, sizeof(int), 0, addr, 
+        &sizeSockAddr) != sizeof(unsigned int)) {
+        
+        return false; //first message received wrong
+        
+    }
+    
+    buf = new char[*size];
+    
     //effective receive
-    unsigned int expected = recvfrom(sock, (void*)buf, size, 
+    unsigned int expected = recvfrom(sock, (void*)buf, *size, 
                             MSG_WAITALL, addr, &sizeSockAddr);
     
     //check the amount of received data

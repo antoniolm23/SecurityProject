@@ -37,12 +37,18 @@ void Key::secretKeyGenerator() {
 
 /* 
  * Allocate the context for decryption
+ * @params:
+ *          file: the file from which retrieve the key
  */
-void Key::contextDecryptAlloc() {
+void Key::contextDecryptAlloc(const char* file) {
     
     int b = keySize;
-    ctx=new EVP_CIPHER_CTX;
-    unsigned char* key = readKeyFile("key.txt", b);
+    ctx = new EVP_CIPHER_CTX;
+    unsigned char* key;
+    if(file == 0)
+        key = readKeyFile("key.txt", b);
+    else
+        key = readKeyFile(file, b);
     EVP_CIPHER_CTX_init(ctx);
     EVP_DecryptInit(ctx, EVP_des_ecb(), NULL, NULL);
     EVP_DecryptInit(ctx, NULL, key, NULL);
@@ -53,12 +59,18 @@ void Key::contextDecryptAlloc() {
 
 /*
  * Allocate the context for encryption
+ * @params: 
+ *          file: the name of the file from which retrieve the key
  */
-void Key::contextEncryptAlloc() {
+void Key::contextEncryptAlloc(const char* file) {
     
     int b = keySize;
     ctx=new EVP_CIPHER_CTX;
-    unsigned char* key = readKeyFile("key.txt", b);
+    unsigned char* key;
+    if(file == 0)
+        key = readKeyFile("key.txt", b);
+    else 
+        key = readKeyFile(file, b);
     EVP_CIPHER_CTX_init(ctx);
     EVP_EncryptInit(ctx,EVP_des_ecb(),NULL,NULL);
     EVP_EncryptInit(ctx,NULL,key,NULL);
@@ -74,14 +86,17 @@ void Key::contextEncryptAlloc() {
  *          buffer: the buffer to be encrypted
  *          size: (INOUT) at first is the size of the buffer and then returns 
  *                  the size of the encrypted buffer
+ *          file: (OPTIONAL) the file from which retrieve the key
  * @returns:
  *          the encrypted buffer
  * NOTE: memory allocation remember to delete
  */
-unsigned char* Key::secretEncrypt(const unsigned char* buffer, int* size) {
+unsigned char* Key::secretEncrypt(const unsigned char* buffer,unsigned int* size, 
+                                  const char* file) {
     
-    contextEncryptAlloc();
-    //temporary buffer used for decryption
+    contextEncryptAlloc(file);
+    
+    //temporary buffer used for encryption
     unsigned char* crbuf = 
         new unsigned char[*size + EVP_CIPHER_CTX_block_size(ctx)];
     int byteo, pos, byteof, tot;               //output byte  
@@ -101,13 +116,15 @@ unsigned char* Key::secretEncrypt(const unsigned char* buffer, int* size) {
  *          buffer: the buffer to decrypt
  *          size: (INOUT) dimension of both buffers, at first the one to be 
  *                  decrypted and the decrypted one
+ *          file: the file from which retrieve the key
  * @return:
  *          the decrypted buffer
  * NOTE: memory allocated here rmemember to delete
  */
-unsigned char* Key::secretDecrypt(const unsigned char* buffer, int* size) {
+unsigned char* Key::secretDecrypt(const unsigned char* buffer,unsigned int* size,
+                                  const char* file) {
     
-    contextDecryptAlloc();
+    contextDecryptAlloc(file);
     unsigned char* debuffero =
         new unsigned char [(*size) + EVP_CIPHER_CTX_block_size(ctx)];
     int pos, byteo, byteof, tot;             //output byte
@@ -135,7 +152,7 @@ unsigned char* Key::secretDecrypt(const unsigned char* buffer, int* size) {
  * @returns:
  *          the computed hash 
  */
-unsigned char* Key::generateHash(char* buffer, int* size) {
+unsigned char* Key::generateHash(char* buffer,unsigned int* size) {
     
     const char* alg = "sha1";
     int hashSize, rest;
@@ -202,7 +219,7 @@ unsigned char* Key::generateHash(char* buffer, int* size) {
  * @return:
  *          true if the hashes are equal, false otherwise
  */
-bool Key::compareHash(char* buffer, int* size) {
+bool Key::compareHash(char* buffer,unsigned int* size) {
     
     printByte((unsigned char*)buffer, *size);
     
