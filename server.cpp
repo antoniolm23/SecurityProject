@@ -452,7 +452,7 @@ unsigned char* Server::RecvClientMsg(int sock, unsigned int* len) {
 /** 
  * Send a client a message
  * NOTE: steganography and cryptography are done here
- * NOTE: the client has only the symmetric key, so we can do just the symmetricÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¹
+ * NOTE: the client has only the symmetric key, so we can do just the symmetricÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¹
  * encryption here
  * @params
  *          sock: socket of the client to who the server is sending
@@ -808,7 +808,7 @@ bool Server::protocol(char* client) {
     //search the client in the list
     clientInfo cl = searchListByName(client);
     
-    unsigned int sizeFirstMsg = sizeof(int) + sizeCommand;
+    unsigned int sizeFirstMsg = sizeof(nonceType) + sizeCommand;
     unsigned char* firstMsg = new unsigned char[sizeFirstMsg];
     memcpy(firstMsg, "Nonce ", sizeCommand);
     memcpy(&firstMsg[sizeCommand], (void*)&nonce,sizeof(nonceType));

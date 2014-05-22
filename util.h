@@ -54,7 +54,7 @@ struct cliMessage {
     int nonceServer;
     unsigned char key[keySize];
     unsigned char secret[hashLen];
-    char* padding; //includes the hash of the message
+    //char* padding;
     
 };
 

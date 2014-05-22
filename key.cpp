@@ -273,8 +273,11 @@ bool Key::compareHash(unsigned char* buffer,unsigned int* size) {
     EVP_DigestFinal_ex(mdctx, hashBuf, &hashSize);
     //END HASH COMPUTATION
     
-    //printByte((unsigned char*)hashBuf, hashSize);
-    //printByte((unsigned char*)&buffer[*size], hashSize);
+    cout<<"generated Hashes"<<endl;
+    printByte((unsigned char*)hashBuf, hashSize);
+    cout<<endl<<"*****************************"<<endl;
+    printByte((unsigned char*)&buffer[*size], hashSize);
+    cout<<endl<<"*****************************"<<endl;
     
     if(memcmp(hashBuf, &buffer[*size], hashSize) == 0)
         result = true;

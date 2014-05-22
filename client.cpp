@@ -119,7 +119,7 @@ bool Client::sendServMsg(unsigned char* msg, unsigned int len){
     //checks if encryption mode is asymmetric, then do it before sending
     if( mode == Asymmetric ) {
         
-        esMsg = k.asymmetricEncrypt("key.txt", msg, &size);
+        esMsg = k.asymmetricEncrypt("server/pub.pem", msg, &size);
         free(msg);
         msg = esMsg;
         
@@ -397,8 +397,9 @@ void Client::receiveEvents() {
  */
 void Client::protocol(unsigned char* msg, unsigned int size) {
     
-    nonceType servNonce = msg[sizeCommand];
-    unsigned int cliMessageLength, totMsgSize;
+    nonceType servNonce;
+    memcpy(&servNonce, &msg[sizeCommand], sizeof(nonceType));
+    unsigned int totMsgSize;
     unsigned char* totMsg;
     unsigned int len;
     
@@ -422,11 +423,13 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     len = strlen((const char*)secret);
     
     //hash the secret because 
+    
     memcpy(cm -> secret, k.generateHash(secret, &len), hashLen);
-    cm -> padding = generatePadding(&len);
+    //cm -> padding = generatePadding(&len);
     //set the mode to asymmetric
     mode = Asymmetric;
     
+    /*
     //do te preparation of the message
     cliMessageLength = 2 * sizeof(nonceType) + len + hashLen + keySize; 
     unsigned char* hashMsg = k.generateHash((unsigned char*)cm, &len);
@@ -434,13 +437,29 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     totMsg = new unsigned char[totMsgSize];
     memcpy(totMsg, (void*)cm, cliMessageLength);
     memcpy(&totMsg[cliMessageLength], hashMsg, len);
+    */
     
+    unsigned int tmpLength = 2* sizeof(nonceType) + len + keySize;
+    unsigned  char* tmpMsg = new unsigned char[tmpLength];
+    memcpy(tmpMsg, (void*)cm, tmpLength);
+    
+    totMsgSize = tmpLength + hashLen;
+    totMsg = new unsigned char[totMsgSize];
+    memcpy(totMsg, tmpMsg, tmpLength);
+    memcpy(&totMsg[tmpLength], k.generateHash(tmpMsg, &tmpLength), hashLen);
+    bool result = k.compareHash(totMsg, &totMsgSize);
+    cout<<result<<endl;
+    
+    totMsgSize = tmpLength + hashLen;
     //before the sending do all the needed free
-    free(cm -> padding);
-    free(cm);
-    free(tmpKey);
-    free(hashMsg);
+    //free(cm -> padding);
+    //free(cm);
+    //free(tmpKey);
+    //free(hashMsg);
     
+    cout<<"printing before the send:";
+    printByte(totMsg, totMsgSize);
+    cout<<endl<<"**************************"<<endl;
     if( !sendServMsg(totMsg, totMsgSize) ) {
         
         cerr<<"wrong message sent"<<endl;
@@ -448,7 +467,8 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
         return;
         
     }
-    free(totMsg);
+    cerr<<"message sent"<<endl;
+    //free(totMsg);
     
     /* after the send of the message the client expects its nonce modified
      * encrypted by means of the symmetric key
@@ -460,6 +480,7 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
         return;
         
     }
+    cerr<<"message received"<<endl;
     
     if( !k.compareHash(totMsg, &totMsgSize) ) {
         
