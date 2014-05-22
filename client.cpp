@@ -1,6 +1,6 @@
 #include "client.h"
-#include "key.h"
-/* 
+
+/** 
  * Client constructor
  * @params:
  *          port: port on which the client is attached to
@@ -42,33 +42,100 @@ Client::Client(int port, const char* n, const char* server){
      * generate a secretKey, the key has to be generated just 
      * once in the whole program
     */
-    Key k = Key();
-    k.secretKeyGenerator();
+    k = Key();
+    s = steno();
+    StegoMode = false;
     mode = None;
     
 }
 
-/* 
+/** 
  * Receive a message from the server
+ * @params:
+ *          msg: (OUT) the received message
+ *          len: (OUT) the size of the message
  * @return 
- *         the message received
+ *         wether the message was received correctly or not
  */
-message Client::recvServMsg(int sock) {
+unsigned char* Client::recvServMsg(unsigned int* len) {
     
-    return receiveMessage(sock, &servAddr);
+    unsigned int size = *len;
+    unsigned char* decsMsg, *msg;
+    
+    //if the receive has gone wrong then return false
+    if( (msg = receiveBuffer(cliSock, &size)) == NULL) {
+        return NULL;
+    }
+    
+    //check if we have to extract the message from the image
+    if(StegoMode) {
+        
+        steno s = steno();
+        decsMsg = (unsigned char*)s.readMessage(msg, &size);
+        free(msg);
+        msg = decsMsg;
+        
+    }
+    
+    //check if we have already exchanged a protocol with the key
+    if( mode == Symmetric ) {
+        
+        decsMsg = k.secretDecrypt(msg, &size);
+        free(msg);
+        msg = decsMsg;
+        
+    }
+    
+    *len = size;
+    return msg;
     
 }
 
-/* 
+/**
  * Send a message to the server
  * @params
- *          msg: the message the client sends
+ *          mesg: the text of the message the client sends
+ *          len: length of the text
  * @returns
- *          how the sent went
+ *          the result of the send
+ * NOTE: the size of messages may be sent in the clear since if the adversary 
+ * does anything against the communication, then the parties are able to detect 
+ * that there's an intruder eavesdropping or manipulating the flow of messages
  */
-bool Client::sendServMsg(message msg){
+bool Client::sendServMsg(unsigned char* msg, unsigned int len){
     
-    return sendMessage(cliSock, msg, &servAddr);
+    unsigned int size = len;
+    unsigned char* esMsg;
+    
+    //checks if encryption mode is symmetric, then do it before sending
+    if( mode == Symmetric ) {
+        
+        esMsg = k.secretEncrypt(msg, &size);
+        free(msg);
+        msg = esMsg;
+        
+    }
+    
+    //checks if encryption mode is asymmetric, then do it before sending
+    if( mode == Asymmetric ) {
+        
+        esMsg = k.asymmetricEncrypt("key.txt", msg, &size);
+        free(msg);
+        msg = esMsg;
+        
+    } 
+    
+    //if the flag is UP then do the steganography
+    if(StegoMode == true) {
+        
+        esMsg = s.LSBSteno(msg, &size);
+        //prepare the variables in order to be compliant with the same send
+        free(msg);
+        msg = esMsg;
+        
+    }
+    
+    return sendBuffer(cliSock, msg, size);
     
 }
 
@@ -103,54 +170,94 @@ void Client::displayHelp() {
  * login: does a login to the server
  * encry: encrypt a message
  * mexit: quit from the server
+ * steno: required steganography
  */
-void Client::parseKeyCommand(char k) {
+void Client::parseKeyCommand(char t) {
     
     char text[100];
+    char secret[100];
     //command plus the text
-    unsigned char* cmdText;
-    int len;
-    bool messageToSend = false;
+    unsigned char* textMsg = NULL, *hs;
+    unsigned int len, len1;
+    bool messageToSend = false, exitCmd = false;
     
+    string message;
     const char* login = "login ";
     const char* fireq = "fireq ";
-    const char* enc = "encry ";
-    const char* command; 
+    const char* quit = "mexit ";
+    const char* steganography = "steno ";
     
     //check the command typed by the client
-    switch(k) {
+    /* 
+     * at the end of the switch we will have the whole message in the variable
+     * message and its len in the vairable len
+     */
+    switch(t) {
         case 'h':
             displayHelp();
             break;
         //this means a new message to send in the clear
-        case 's':
-            cin>>text;
-            len = strlen(text);
-            break;
-        //
-        case 'f':
-            messageToSend  = true;
-            cin>>text;
-            len = strlen(text);
-            //request a file
-            command = fireq;
-            fileName = string(text);
-            waitFile = true;
-            break;
-        case 'l':
+        case 'c':
             messageToSend = true;
             cin>>text;
             len = strlen(text);
-            command = login;
+            textMsg = new unsigned char[len + 1];
+            memcpy(textMsg, text, len);
             break;
+        //file request
+        case 'f':
+            messageToSend  = true;
+            cin>>text;
+            //request a file
+            message = fireq + string(text);
+            len = message.length();
+            textMsg = new unsigned char[len];
+            memcpy(textMsg, message.c_str(), len);
+            waitFile = true;
+            break;
+        //login command
+        /* 
+         * login + clientName + hash of the secret
+         */
+        case 'l':
+            messageToSend = true;
+            cout<<"Insert name: ";
+            cin>>text;
+            len = strlen(text);
+            cout<<"Insert the secret: ";
+            cin>>secret;
+            len1 = strlen(secret);
+            hs = k.generateHash((unsigned char*)secret, &len1);
+            message = login + string(text);
+            len = message.length() + len1;
+            textMsg = new unsigned char[len];
+            memcpy(textMsg, message.c_str(), len - len1 );
+            memcpy(&textMsg[len - len1], hs, len1);
+            free(hs);
+            break;
+        //set symmetric encryption mode
         case 'e':
-            encryptionMode = Symmetric;
+            mode = Symmetric;
             break;
+        //set asymmetric encryption mode
         case 'p':
-            encryptionMode = Asymmetric;
+            mode = Asymmetric;
             break;
+        //tells to the server and prepare the client to quit
         case 'q':
-            exit(1);
+            messageToSend = true;
+            textMsg = new unsigned char[sizeCommand];
+            memcpy(textMsg, quit, sizeCommand);
+            len = (unsigned int)sizeCommand;
+            exitCmd = true;
+            break;
+        //set the parameters to tell to the server to apply steganography
+        case 's':
+            messageToSend = true;
+            textMsg = new unsigned char[sizeCommand];
+            memcpy(textMsg, steganography, sizeCommand);
+            len = (unsigned int)sizeCommand;
+            break;
         default:
         break;
         
@@ -159,79 +266,31 @@ void Client::parseKeyCommand(char k) {
     if(!messageToSend)
         return;
     
-    /*
-     * prepare the message to send putting at the beginning the command 
-     * and at the end the message put by the client
-     */
-    len += 6;
-    cmdText = new unsigned char[len];
-    for(int i = 0; i<6; i++)
-        cmdText[i] = command[i];
-    memcpy(&cmdText[6], text, (len - 6));
-    unsigned char* tmp = new unsigned char[len]; 
-    memcpy(tmp, cmdText, len);
-    delete(cmdText);
-    cout<<tmp<<endl;
-    tmp[len] = '\0';
-    
-    //check if we have to encrypt the message and do it if requested
-    if(encryptionMode == Symmetric) {
-
-        Key k = Key();
-        cmdText = k.secretEncrypt(tmp, &len);
-        //cout<<"successfully encrypted"<<cmdText<<endl;
-        //printByte((uint8_t*)cmdText, len);
-        delete(tmp);
-        //Key k1 = Key();
-        //tmp = k1.secretDecrypt(cmdText, &len);
-        //cout<<"decrypted: "<<tmp<<endl;
-        
-        //cout<<"cmdText: "<<cmdText<<endl;
-        message* msg = new message;
-        msg->len = len + 1;
-        msg->text = new char[len + 1];
-        memcpy(msg->text, cmdText, len);
-        msg->text[len] = '\0';
-        //cout<<"second print ";
-        //cout<<msg->text<<endl;
-        sendServMsg(*msg);
-        delete(msg->text);
-        delete(msg);
-    }
-    
-    if(encryptionMode == Asymmetric) {
-        
-        Key k = Key();
-        //each key is stored in a folder named after the entity related to
-        cmdText = k.asymmetricEncrypt("server/pub.pem", tmp, &len);
-        delete(tmp);
-        if(cmdText == NULL || len <= 0) {
-            cerr<<"Wrong encryption by means of the public key"<<endl;
-            return;
-        }
-        //send the buffer encrypted by means of the server public key
-        sendBuffer(cliSock, (unsigned char*)cmdText, len);
-        
-    }
+    if( !sendServMsg(textMsg, len) )
+        cerr<<"error in sending the message"<<endl;
     
     //free the virtual allocated memory
-    delete(cmdText);
+    if(textMsg != NULL)
+        delete(textMsg);
+    
+    if(exitCmd == true) 
+        exit(1);
     
 }
 
-/* 
+/** 
  * Parse the message received by the server, in this case the waitReplay
  * to see if the client can do an assumption on the received message
  * @params:
  *          msg: the received message
  */
-void Client::parseRecMessage(message msg) {
+void Client::parseRecMessage(unsigned char* text,unsigned int size) {
     
-    int size;
+    unsigned int len;
     unsigned char* buffer;
     
     //first check the message
-    if(strcmp (msg.text, "wrong file") == 0) {
+    if(strcmp ((const char*)text, "wrong file") == 0) {
         cerr<<"wrong file requested"<<endl;
         return;
     }
@@ -239,24 +298,32 @@ void Client::parseRecMessage(message msg) {
     //wait for a file and decrypts it
     if(waitFile == true) {
         Key k = Key(); 
-        size = msg.len;
-        buffer = k.secretDecrypt((const unsigned char*)msg.text, &size);
+        len = size;
+        buffer = k.secretDecrypt((const unsigned char*)text, &len);
         //printByte(buffer, size);
         
         //cout<<"********************\n\n\n**************\n\n"<<endl;
         
-        bool notAltered = k.compareHash((char*)buffer, &size);
+        bool notAltered = k.compareHash(buffer, &len);
         //this means the hash aren't equal
         if(!notAltered) {
             cerr<<"intruder modified something"<<endl;
             exit(-1);
         }
         cout<<buffer<<endl;
-        cout<<" *** "<<msg.text<<" *** "<<endl;
+        cout<<" *** "<<text<<" *** "<<endl;
         writeFile("out.pdf", buffer, size);
         delete(buffer);
-        delete(msg.text);
+
     }
+    
+    if(strncmp((const char*)text, "Nonce ", sizeCommand) == 0) {
+        
+        protocol(text, size);
+        
+    }
+    
+    delete(text);
     
 }
 
@@ -265,6 +332,9 @@ void Client::parseRecMessage(message msg) {
  */
 void Client::receiveEvents() {
     
+    
+    unsigned char* buffer = NULL;
+    unsigned int len;
     //cerr<<"receive events\n";
     fdmax = cliSock;
     //infinite loop to accept events
@@ -302,8 +372,13 @@ void Client::receiveEvents() {
                 //receive the message from the server and parse it
                 if(i == cliSock) {
                     
-                    message msg = recvServMsg(i);
-                    parseRecMessage(msg);
+                    if( (buffer = recvServMsg(&len)) == NULL ) {
+                        
+                        cerr<<"error in receiving the message"<<endl;
+                        break;
+                        
+                    }
+                    parseRecMessage(buffer, len);
                     
                 }
                 
@@ -311,6 +386,111 @@ void Client::receiveEvents() {
         }
     }
 }
+
+/**
+ * This is the function to establish the key between the client and the server
+ * The message received from the server hash the following structure:
+ *  "Nonce " numberNonce
+ * @params:
+ *          msg: the message received from the server
+ *          size: the size of the message
+ */
+void Client::protocol(unsigned char* msg, unsigned int size) {
+    
+    nonceType servNonce = msg[sizeCommand];
+    unsigned int cliMessageLength, totMsgSize;
+    unsigned char* totMsg;
+    unsigned int len;
+    
+    //the client prepares the reply
+    cliMessage* cm = new cliMessage;
+    cm -> nonceServer = servNonce;
+    
+    cNonce = cm -> nonceClient = generateNonce();
+    //generate the key and then read it
+    k.secretKeyGenerator();
+    //FIXME: to optimize modifying something
+    unsigned char* tmpKey = readKeyFile("key.txt", (int)keySize); 
+    memcpy( cm -> key, tmpKey, keySize);
+    free(tmpKey);
+    
+    //ask the client to insert the secret
+    cout<<"Insert secret"<<endl;
+    unsigned char secret[200];
+    cin>>secret;
+    
+    len = strlen((const char*)secret);
+    
+    //hash the secret because 
+    memcpy(cm -> secret, k.generateHash(secret, &len), hashLen);
+    cm -> padding = generatePadding(&len);
+    //set the mode to asymmetric
+    mode = Asymmetric;
+    
+    //do te preparation of the message
+    cliMessageLength = 2 * sizeof(nonceType) + len + hashLen + keySize; 
+    unsigned char* hashMsg = k.generateHash((unsigned char*)cm, &len);
+    totMsgSize = cliMessageLength + len;
+    totMsg = new unsigned char[totMsgSize];
+    memcpy(totMsg, (void*)cm, cliMessageLength);
+    memcpy(&totMsg[cliMessageLength], hashMsg, len);
+    
+    //before the sending do all the needed free
+    free(cm -> padding);
+    free(cm);
+    free(tmpKey);
+    free(hashMsg);
+    
+    if( !sendServMsg(totMsg, totMsgSize) ) {
+        
+        cerr<<"wrong message sent"<<endl;
+        free(totMsg);
+        return;
+        
+    }
+    free(totMsg);
+    
+    /* after the send of the message the client expects its nonce modified
+     * encrypted by means of the symmetric key
+     */
+    if( (totMsg = recvServMsg(&totMsgSize) ) == NULL ) {
+        
+        cerr<<"wrong message received"<<endl;
+        free(totMsg);
+        return;
+        
+    }
+    
+    if( !k.compareHash(totMsg, &totMsgSize) ) {
+        
+        cerr<<"Alert! message altered"<<endl;
+        free(totMsg);
+        return;
+        
+    }
+    
+    nonceType recNonce;
+    memcpy((void*)& recNonce, totMsg, totMsgSize);
+    
+    //check if the nonce was received correctly
+    if( recNonce == (cNonce - 1) ) {
+        
+        mode = Symmetric;
+        return;
+        
+    }
+    
+    else {
+        
+        mode = None;
+        cerr<<"Wrong protocol execution"<<endl;
+        return;
+        
+    }
+    
+    
+}
+
 
 Client::~Client(){
 

@@ -36,19 +36,16 @@ Server::Server(const char* host, int port) {
     }
 
     //preparing the file descriptors
-    FD_ZERO(&master);
-    FD_ZERO(&read_fds);
-    FD_SET(servSock, &master);
     fdmax=servSock;
     
-    steganoMode = true;
+    steganoMode = false;
 
     //initialize the string
     name = string(host);
     
     clientList = list<clientInfo>();
     
-    nonce = NONCEBEGIN;
+    nonce = (nonceType)NONCEBEGIN;
     k = Key();
     s = steno();
     
@@ -80,7 +77,6 @@ clientInfo Server::searchListSocket(int sock) {
             t.clientAddr = p -> clientAddr;
             t.clientSock = p -> clientSock;
             t.protoStep = p -> protoStep;
-            t.expMsgLen = p -> expMsgLen;
             t.encrypt = p -> encrypt;
             return t;
         }
@@ -110,7 +106,6 @@ clientInfo Server::searchListByName(char* client) {
             t.clientAddr = p -> clientAddr;
             t.clientSock = p -> clientSock;
             t.protoStep = p -> protoStep;
-            t.expMsgLen = p -> expMsgLen;
             t.encrypt = p -> encrypt;
             return t;
         }
@@ -269,6 +264,52 @@ unsigned char* Server::getSecret(int sock) {
     
 }
 
+/**
+ * search the max socket in the list
+ * @return:
+ *          the highest socket number
+ */
+int Server::maxSock() {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    int maxSock = 0;
+    
+    for(; p != q; p++) {
+
+        if(p -> clientSock > maxSock)
+            maxSock = p->clientSock;
+    }
+    
+    return maxSock;
+    
+}
+
+/* 
+ * Remove a client from the list and then eventually re-arrange the file 
+ * descriptors in order to not have any errors
+ */
+void Server::removeClient(int sock) {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    int remSock;
+    
+    for(; p != q; p++) {
+
+        if(p -> clientSock == sock) {
+            
+            remSock = sock;
+            clientList.erase(p++);
+            
+            //now rearrange file descriptors
+            if(fdmax == remSock) 
+                fdmax = maxSock();
+        }
+    }
+    
+}
+
 /*******************************************************************************
  * PRIVATE FUNCTIONS TO DEAL WITH THE PROTOCOL
  * ****************************************************************************/
@@ -294,7 +335,7 @@ unsigned char* Server::getSecret(int sock) {
 unsigned char* Server::settleReply(unsigned char* message, unsigned int* size) {
     
     cliMessage* cm = (cliMessage*) message;
-    unsigned int clientNonce = cm -> nonceClient;
+    nonceType clientNonce = cm -> nonceClient;
     clientNonce --;
     free(message);
     message = (unsigned char*)&clientNonce;
@@ -313,13 +354,14 @@ unsigned char* Server::settleReply(unsigned char* message, unsigned int* size) {
  * @return:
  *          if the message is compliant or not
  */
-bool Server::verifyReceivedMsg(int sock, unsigned char* message, int size) {
+bool Server::verifyReceivedMsg(int sock, unsigned char* message, 
+                               unsigned int size) {
     
-    int len = size;
-    int serverNonce;
+    unsigned int len = size;
+    nonceType serverNonce;
     unsigned char* key, *secret;
     //first verifiy the integrity of the message
-    if( ! k.compareHash((char*)message, &len) ) {
+    if( ! k.compareHash(message, &len) ) {
         
         cerr<<"altered message STOP!"<<endl;
         return false;
@@ -353,6 +395,7 @@ bool Server::verifyReceivedMsg(int sock, unsigned char* message, int size) {
     
 }
 
+/******************************************************************************/
 
 /** 
  * Receive a message from a client
@@ -364,14 +407,14 @@ bool Server::verifyReceivedMsg(int sock, unsigned char* message, int size) {
  * @returns
  *          how the receive has gone
  */
-bool Server::RecvClientMsg(int sock, unsigned char* msg, unsigned int* len) {
+unsigned char* Server::RecvClientMsg(int sock, unsigned int* len) {
     
     unsigned int size = *len;
-    unsigned char* decsMsg;
+    unsigned char* decsMsg, *msg;
     
     //if the receive has gone wrong then return false
-    if( !receiveBuffer(sock, msg, &size) ) {
-        return false;
+    if( (msg = receiveBuffer(sock, &size)) == NULL ) {
+        return NULL;
     }
     
     //check if we have to extract the message from the image
@@ -403,13 +446,13 @@ bool Server::RecvClientMsg(int sock, unsigned char* msg, unsigned int* len) {
     }
     
     *len = size;
-    return true;
+    return msg;
 }
 
 /** 
  * Send a client a message
  * NOTE: steganography and cryptography are done here
- * NOTE: the client has only the symmetric key, so we can do just the symmetricÃ¹
+ * NOTE: the client has only the symmetric key, so we can do just the symmetricÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¹
  * encryption here
  * @params
  *          sock: socket of the client to who the server is sending
@@ -462,18 +505,17 @@ void Server::acceptConnection() {
     if(arrivedClient.clientSock > servSock)
         fdmax = arrivedClient.clientSock;
     
-    FD_SET(arrivedClient.clientSock, &master);
+    FD_SET(arrivedClient.clientSock, &read_fds);
     arrivedClient.Name = string("\0");
     //this means that the login has to be done
     arrivedClient.protoStep = TODOLOGIN;
-    arrivedClient.expMsgLen = 0;
     arrivedClient.encrypt = None;
     memset(arrivedClient.secret, 0, 20);
     
     //insert the client in the list (last action to do)
     clientList.push_back(arrivedClient);
     
-    cout<<"Arrived client "<<arrivedClient.expMsgLen<<endl;
+    cout<<"Arrived client "<<endl;
     
 }
 
@@ -524,6 +566,7 @@ void Server::parseKeyCommand(){
         case 's':
             steganoMode = true;
             cout<<"Steganography Mode set"<<endl;
+            //TODO provide a send to all client to inform them of the steno mode
             break;
         case 'p':
             cin>>client;
@@ -555,9 +598,9 @@ unsigned char* Server::prepareFile(char* text, int* len) {
     unsigned char* defBuffer;
     
     //cout<<msg.text<<endl;
-    int size = 0;
+    unsigned int size = 0;
     //read the content of a file
-    char* buffer = readFile(text, &size);
+    unsigned char* buffer = (unsigned char*)readFile(text, &size);
     
     //if a buffer is empty then send the client an error message
     if(buffer == NULL) {
@@ -601,6 +644,7 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
     clientInfo cl = searchListSocket(sock);
     int len;
     len = size;
+    bool actionPerformed = false;
     
     /*
      * in the login we receive the client name and the hash of the secret, it's
@@ -612,6 +656,7 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
         if(strncmp("login ", (const char*)text, 6) == 0) {
             
             int startSecret;
+            actionPerformed = true;
             //the client sends its name and the hash of the scret 
             //along with the command so jump after the command
             text += 6; 
@@ -631,7 +676,7 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
                     memcpy(p -> secret, &text[startSecret], hashLen);
                 }
             }
-            delete(text);
+            delete(text - 6);
             cout<<"Client Name: "<<cl.Name<<endl;
             SendClientMsg(sock, (unsigned char*)"Login OK\0", strlen("Login OK\0"));
             
@@ -639,6 +684,8 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
         
         //send an error message
         else {
+            
+            actionPerformed = true;
             SendClientMsg(sock, (unsigned char*)"Wrong Request\0", 
                           strlen("Wrong Request\0"));
         }
@@ -648,6 +695,7 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
     //check if we have received a file request
     if(strncmp("fireq ", (const char*)text, 6) == 0) {
         
+        actionPerformed = true; 
         text[len-1] = '\0';
         len -= 6;
         text += 6;
@@ -664,8 +712,22 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
             cerr<<"send ok"<<endl;
     }
     
+    if(strncmp("steno ", (const char*)text, 6) == 0) {
+        
+        actionPerformed = true;
+        steganoMode = true;
+        
+    }
+    
+    if(strncmp("mexit ", (const char*)text, 6) == 0) {
+        
+        actionPerformed = true;
+        removeClient(sock);
+        
+    }
+    
     //print the message if it doesn't match any of the operation provided by the server
-    else {
+    if(actionPerformed == false) {
         
         cout<<text<<endl;
         
@@ -682,9 +744,10 @@ void Server::receiveEvents() {
     //infinite loop to accept events
     while(1) {
         
-        //cout<<"hello"<<endl;
+        FD_SET(0, &read_fds);
+        FD_SET(servSock, &read_fds);
+        cout<<"waiting from typing or other event"<<endl;
         
-        read_fds=master;
         if(select(fdmax+1, &read_fds, NULL, NULL, NULL)==-1) {
             cerr<<" error in the select"<<name<<" \n";
             exit(1);
@@ -694,13 +757,19 @@ void Server::receiveEvents() {
          * roll all the file descriptors and
          * checks if the file descriptor has been set
          */ 
-        for(int i=0; i<=fdmax; i++) {
+        for(int i = 0; i <= fdmax; i++) {
             
             //cout<<"for cycle "<<i<<endl;
             
             //this means keyboard event
-            if(FD_ISSET(0, &read_fds)) 
+            if(FD_ISSET(0, &read_fds)) {
+                
+                //cout<<"input from keyboard"<<endl;
                 parseKeyCommand();
+                
+            }
+            
+            //this means other kind of input
             if(FD_ISSET(i, &read_fds)) {
                 
                 //checks if there's a new connections
@@ -712,7 +781,7 @@ void Server::receiveEvents() {
                 //this means a receiving message
                 //NOTE: i > 2 to avoid the stderr and the stdout 
                 if(i > 2 && i != servSock) {
-                    if( !RecvClientMsg(i, buffer, &len) ) {
+                    if( (buffer = RecvClientMsg(i,&len)) == NULL  ) {
                         cerr<<"Error in receiving the message"<<endl;
                         break;
                     }
@@ -739,20 +808,25 @@ bool Server::protocol(char* client) {
     //search the client in the list
     clientInfo cl = searchListByName(client);
     
+    unsigned int sizeFirstMsg = sizeof(int) + sizeCommand;
+    unsigned char* firstMsg = new unsigned char[sizeFirstMsg];
+    memcpy(firstMsg, "Nonce ", sizeCommand);
+    memcpy(&firstMsg[sizeCommand], (void*)&nonce,sizeof(nonceType));
+    
+    
     //send to the client a message consisting of the nonce
-    if(SendClientMsg(cl.clientSock, (unsigned char*)&nonce, 
-        sizeof(int)) == false) {
+    if(SendClientMsg(cl.clientSock, firstMsg, sizeFirstMsg) == false) {
         
         cerr<<"error in sending the nonce to the client"<<endl;
         return false;
         
     }
     
-    //set the required encryption in the reply from the client
+    //set the asymmetric encryption in the reply from the client
     setEncrypt(cl.clientSock, Asymmetric);
     
     //receive the replay from the client, if necessary the message will be deStegoed
-    if(RecvClientMsg(cl.clientSock, message, &size) == false) {
+    if((message = RecvClientMsg(cl.clientSock, &size)) == NULL) {
         
         cerr<<"error in receiving the message from the client"<<endl;
         return false;
@@ -768,7 +842,8 @@ bool Server::protocol(char* client) {
         
         tmpMessage = settleReply(message, &size);
         free(message);
-        message = tmpMessage;
+        message = k.generateHash(tmpMessage, &size);
+        free(tmpMessage);
         
         //from now on all messages will be exchanged through the shared key
         setEncrypt(cl.clientSock, Symmetric);

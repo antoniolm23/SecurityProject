@@ -1,4 +1,6 @@
 #include "util.h"
+#include "key.h"
+#include "steganography.h"
 
 class Client{
     
@@ -12,12 +14,16 @@ class Client{
     //eventually name of the file
     string fileName;
     
+    bool StegoMode;
     encryptionMode mode;
     
     //file descriptors to be used in the select
     int fdmax;
     fd_set master, read_fds;
+    nonceType cNonce;
     
+    Key k;
+    steno s;
     //tells the client wether if he has to wait a replay or not
     bool waitFile;
     
@@ -30,9 +36,9 @@ public:
     Client(int, const char*, const char* );
     
     //send the message to the server
-    bool sendServMsg(message);
+    bool sendServMsg(unsigned char*, unsigned int);
     //receive message from the server
-    message recvServMsg(int);
+    unsigned char* recvServMsg(unsigned int*);
     
     //securityProtocol
     bool securityProtocol();
@@ -40,8 +46,9 @@ public:
     //receive events from the outside world 
     void receiveEvents();
     
-    void parseRecMessage(message);
+    void parseRecMessage(unsigned char* ,unsigned int);
     
+    void protocol(unsigned char*,unsigned int);
     void parseKeyCommand(char);
     void displayHelp();
     

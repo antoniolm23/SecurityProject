@@ -19,6 +19,7 @@
 #define pubBits 1024
 #define hashLen 20 //use of sha1 so 20 bytes
 #define maxClientName 30
+#define sizeCommand 6
 
 using namespace std;
 
@@ -26,6 +27,9 @@ using namespace std;
  * describes if we want an encryption and what kind of encryption we want
  */
 enum encryptionMode  {None, Symmetric, Asymmetric};
+
+//define the type of the nonce to have more flexibility in the whole program
+typedef unsigned int nonceType;
 
 /*
  * struct that represents a client:
@@ -60,7 +64,7 @@ struct cliMessage {
  * length of the message, text of the message
  */
 struct message{
-    int len;
+    unsigned int len;
     char* text;
 };
 //message management (very useful when all runs in the clear)
@@ -75,8 +79,8 @@ bool sendMessage(int, message, sockaddr* = 0);
 unsigned char* readKeyFile(const char*, int);
 
 //file management
-void writeFile(const char*, unsigned char*, int);
-char* readFile(const char*, int*);
+void writeFile(const char*, unsigned char*, unsigned int);
+char* readFile(const char*, unsigned int*);
 
 //printbyte
 void printByte(unsigned char*, int);
@@ -86,6 +90,10 @@ void printByte(unsigned char*, int);
  * (useful when we need to deal with the exchange of secret messages)
  */
 bool sendBuffer(int,unsigned char*,unsigned int, sockaddr* = 0);
-bool receiveBuffer(int,unsigned char*,unsigned int*, sockaddr* = 0);
+unsigned char* receiveBuffer(int, unsigned int*, sockaddr* = 0);
 
 //END CRYPTO UTILITIES FUNCTIONS
+
+//function to generate a nonce
+nonceType generateNonce();
+char* generatePadding(unsigned int*);

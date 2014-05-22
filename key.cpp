@@ -152,7 +152,7 @@ unsigned char* Key::secretDecrypt(const unsigned char* buffer,unsigned int* size
  * @returns:
  *          the computed hash 
  */
-unsigned char* Key::generateHash(char* buffer,unsigned int* size) {
+unsigned char* Key::generateHash(unsigned char* buffer,unsigned int* size) {
     
     const char* alg = "sha1";
     int hashSize, rest;
@@ -187,7 +187,7 @@ unsigned char* Key::generateHash(char* buffer,unsigned int* size) {
     int ptr = 0;
     
     //BEGIN HASH COMPUTATION
-    for(int i = 0; i < (*size)/k; i++) {
+    for(unsigned int i = 0; i < (*size)/k; i++) {
         EVP_DigestUpdate(mdctx, &buffer[ptr], k);
         ptr += k;
     }
@@ -219,7 +219,7 @@ unsigned char* Key::generateHash(char* buffer,unsigned int* size) {
  * @return:
  *          true if the hashes are equal, false otherwise
  */
-bool Key::compareHash(char* buffer,unsigned int* size) {
+bool Key::compareHash(unsigned char* buffer,unsigned int* size) {
     
     printByte((unsigned char*)buffer, *size);
     
@@ -260,7 +260,7 @@ bool Key::compareHash(char* buffer,unsigned int* size) {
     int ptr = 0;
     
     //BEGIN HASH COMPUTATION
-    for(int i = 0; i < (*size)/k; i++) {
+    for(unsigned int i = 0; i < (*size)/k; i++) {
         EVP_DigestUpdate(mdctx, &buffer[ptr], k);
         ptr += k;
     }
@@ -387,8 +387,9 @@ RSA* rsaPriv(const char* name,const char* pwd) {
  *          the encrypted message
  * NOTE: the length of the message to encrypt MUST BE smaller than the key length
  */
-unsigned char* Key::asymmetricEncrypt(
-    const char* file, const unsigned char* text, int*size) {
+unsigned char* Key::asymmetricEncrypt( const char* file, 
+                                       const unsigned char* text, 
+                                       unsigned int* size) {
     
     unsigned char* tmp;
     RSA* rsa;
@@ -420,7 +421,7 @@ unsigned char* Key::asymmetricEncrypt(
  *                      then the size of the decrypted message
  */
 unsigned char* Key::asymmetricDecrypt(
-    const char* file, const unsigned char* text, int* size){
+    const char* file, const unsigned char* text, unsigned int* size){
     
     RSA* rsa;
     

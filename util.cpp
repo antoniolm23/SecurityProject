@@ -14,7 +14,7 @@
 message receiveMessage(int sock, sockaddr* addr) {
     
     message msg;
-    int msg_size;
+    unsigned int msg_size;
     socklen_t sizeSockAddr = sizeof(sockaddr);
     
     //receive the message size first
@@ -64,7 +64,7 @@ message receiveMessage(int sock, sockaddr* addr) {
 bool sendMessage(int sock, message msg, sockaddr* addr) {
     
     //send the size of the message
-    int size = sendto(sock, (void*)&msg.len, sizeof(int), 0,
+    unsigned int size = sendto(sock, (void*)&msg.len, sizeof(int), 0,
         addr, sizeof(sockaddr));
     
     if(size < sizeof(int)) {
@@ -95,7 +95,7 @@ bool sendMessage(int sock, message msg, sockaddr* addr) {
  *          buffer: buffer to write
  *          dim: dimension of the buffer
  */
-void writeFile(const char* filename, unsigned char* buffer, int dim) {
+void writeFile(const char* filename, unsigned char* buffer,unsigned int dim) {
     
     FILE* f = fopen(filename, "w");
     //effective write on the file
@@ -118,10 +118,10 @@ unsigned char* readKeyFile(const char* filename, int n) {
     if(x == 0) {
         //TODO read until the end of the file
     }
-    unsigned char* buffer = new unsigned char[n+1];
+    unsigned char* buffer = new unsigned char[n];
     FILE* f = fopen(filename, "r");
     fread(buffer, 1, n, f);
-    buffer[n] ='\0';
+    //buffer[n] ='\0';
     fclose(f);
     
     return buffer;
@@ -148,9 +148,9 @@ void printByte(unsigned char* tmp, int len) {
  * @returns:
  *          buffer that contains the file 
  */
-char* readFile(const char* name, int* size) {
+char* readFile(const char* name, unsigned int* size) {
     
-    int fsize;
+    unsigned int fsize;
     char* fbuffer;
     //open the file a first time to check the length of it
     FILE* fp=fopen(name, "r");
@@ -193,7 +193,7 @@ bool sendBuffer(int sock,unsigned char* text,unsigned int len, sockaddr* addr) {
     unsigned int size = len;
     
     //at first send the size
-    if(sendto(sock, (void*)&size, sizeof(int), 0, addr, 
+    if(sendto(sock, (void*)&size, sizeof(unsigned int), 0, addr, 
         sizeof(sockaddr)) != sizeof(unsigned int)) {
         
         return false;
@@ -222,33 +222,52 @@ bool sendBuffer(int sock,unsigned char* text,unsigned int len, sockaddr* addr) {
  *          true if all expected data are received, false otherwise
  * NOTE: allocated memory for buf
  */
-bool receiveBuffer(int sock, unsigned char* buf,
-                   unsigned int* size, sockaddr* addr){
+unsigned char* receiveBuffer(int sock, unsigned int* size, sockaddr* addr){
     
     //checking parameters
     if(sock < 0)
-        return false;
+        return NULL;
     
+    unsigned int len = *size;
     socklen_t sizeSockAddr = sizeof(sockaddr);
+    unsigned char* tmpBuf;
     
     //receive the dimension of the message
-    if(recvfrom(sock, (void*)size, sizeof(int), 0, addr, 
+    if(recvfrom(sock, (void*)&len, sizeof(int), 0, addr, 
         &sizeSockAddr) != sizeof(unsigned int)) {
         
-        return false; //first message received wrong
+        return NULL; //first message received wrong
         
     }
     
-    buf = new char[*size];
+    *size = len;
+    tmpBuf = new unsigned char[*size];
     
     //effective receive
-    unsigned int expected = recvfrom(sock, (void*)buf, *size, 
+    unsigned int expected = recvfrom(sock, (void*)tmpBuf, *size, 
                             MSG_WAITALL, addr, &sizeSockAddr);
     
     //check the amount of received data
-    if(expected == size)
-        return true;
+    if(expected == *size) {
+        return tmpBuf;
+    }
     else
-        return false;
+        return NULL;
 
+}
+
+nonceType generateNonce() {
+    nonceType ten = 10;
+    return ten;
+}
+
+char* generatePadding(unsigned int* size) {
+    
+    unsigned int len = *size;
+    char* pad = new char[len];
+    for(unsigned int i = 0; i < len; i++)
+        pad[i] = 'a' + i;
+    
+    return pad;
+    
 }

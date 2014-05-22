@@ -18,8 +18,8 @@ class Key{
     EVP_CIPHER_CTX* ctx;
     
     //allocation and preparation of the context
-    void contextDecryptAlloc();
-    void contextEncryptAlloc();
+    void contextDecryptAlloc(const char* = 0);
+    void contextEncryptAlloc(const char* = 0);
 public:
     //constructor (generates the key)
     Key();
@@ -31,11 +31,11 @@ public:
     unsigned char* secretEncrypt(const unsigned char*,unsigned int*, const char* = 0);
     
     //HASH FUNCTIONS
-    unsigned char* generateHash(char*, int*);
-    bool compareHash(char*, int* );
+    unsigned char* generateHash(unsigned char*, unsigned int*);
+    bool compareHash(unsigned char*, unsigned int* );
     
     //ASYMMETRIC ENCRYPTION
     void asymmetricKeyGenerator();
-    unsigned char* asymmetricDecrypt(const char*, const unsigned char*,unsigned int*);
-    unsigned char* asymmetricEncrypt(const char*, const unsigned char*,unsigned int*);
+    unsigned char* asymmetricDecrypt(const char*, const unsigned char*, unsigned int*);
+    unsigned char* asymmetricEncrypt(const char*, const unsigned char*, unsigned int*);
 };

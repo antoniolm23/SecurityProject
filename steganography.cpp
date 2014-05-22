@@ -14,7 +14,7 @@
 unsigned char* steno::LSBSteno(unsigned char* message, unsigned int* size) {
     
     char* image;
-    int len;
+    unsigned int len;
     int shift = 1;
     const unsigned char constantAnd = 0xfe; //constant used int the and
     image = readFile("image.bmp", &len);
@@ -50,10 +50,8 @@ unsigned char* steno::LSBSteno(unsigned char* message, unsigned int* size) {
         
     }
     
-    int bitSize = *size * 8;
-    
     //now we can write the message to hide inside the image
-    for(int i = 0; i< *size; i++) {
+    for(unsigned int i = 0; i < *size; i++) {
         
         //write a byte into 8 bytes of an image
         unsigned char tmpChar = message[i];
@@ -70,7 +68,7 @@ unsigned char* steno::LSBSteno(unsigned char* message, unsigned int* size) {
     }
     
     writeFile("hello.bmp", (unsigned char*)image - 54, len);
-    return (image - 54);
+    return (unsigned char*)(image - 54);
     
 }
 
@@ -84,10 +82,9 @@ unsigned char* steno::LSBSteno(unsigned char* message, unsigned int* size) {
  * NOTE: 54 bit is the size of the bitmap header
  * NOTE: allocated memory remember to free it
  */
-unsigned char* steno::readMessage(const unsigned char* buffer,unsigned int* size) {
+unsigned char* steno::readMessage(unsigned char* buffer,unsigned int* size) {
     
-    int len = *size;
-    char* stenoImage = buffer;
+    unsigned char* stenoImage = buffer;
     const unsigned char andBit = 0x01;
     
     stenoImage += 54;
@@ -107,7 +104,8 @@ unsigned char* steno::readMessage(const unsigned char* buffer,unsigned int* size
     
     cout<<tmpLen<<endl;
     
-    char* message = new char[tmpLen];
+    *size = tmpLen;
+    unsigned char* message = new unsigned char[tmpLen];
     
     //read the hidden message present in the image
     for(unsigned int i = 0; i< tmpLen; i++) {

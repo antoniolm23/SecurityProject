@@ -28,7 +28,7 @@ class Server {
     //list of connected clients
     list<clientInfo> clientList;
     
-    int nonce;
+    nonceType nonce;
     
     //PRIVATE FUNCTIONS
     void parseKeyCommand();
@@ -39,6 +39,8 @@ class Server {
     //functions on the list
     clientInfo searchListSocket(int);
     clientInfo searchListByName(char*);
+    void removeClient(int);
+    int maxSock();
     int getEncrypt(int);
     void setEncrypt(int , encryptionMode);
     void setSecret(int, unsigned char*, int);
@@ -46,7 +48,7 @@ class Server {
     const char* getKey(int);
     unsigned char* getSecret(int);
     unsigned char* settleReply(unsigned char*, unsigned int*);
-    bool verifyReceivedMsg(int, unsigned char*, int);
+    bool verifyReceivedMsg(int, unsigned char*, unsigned int);
     
 public:
     
@@ -62,7 +64,7 @@ public:
     void receiveEvents();
     
     //send and receive message to and from a client
-    bool RecvClientMsg(int, unsigned char*, unsigned int*);
+    unsigned char* RecvClientMsg(int, unsigned int*);
     bool SendClientMsg(int, unsigned char*, unsigned int);
     
     /*parses the received message in order to take the right decision*/
