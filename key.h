@@ -31,8 +31,8 @@ public:
     unsigned char* secretEncrypt(const unsigned char*,unsigned int*, const char* = 0);
     
     //HASH FUNCTIONS
-    unsigned char* generateHash(unsigned char*, unsigned int*);
-    bool compareHash(unsigned char*, unsigned int* );
+    unsigned char* generateHash(char*, unsigned int*);
+    bool compareHash(char*, unsigned int* );
     
     //ASYMMETRIC ENCRYPTION
     void asymmetricKeyGenerator();

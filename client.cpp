@@ -227,7 +227,7 @@ void Client::parseKeyCommand(char t) {
             cout<<"Insert the secret: ";
             cin>>secret;
             len1 = strlen(secret);
-            hs = k.generateHash((unsigned char*)secret, &len1);
+            hs = k.generateHash((char*)secret, &len1);
             message = login + string(text);
             len = message.length() + len1;
             textMsg = new unsigned char[len];
@@ -304,7 +304,7 @@ void Client::parseRecMessage(unsigned char* text,unsigned int size) {
         
         //cout<<"********************\n\n\n**************\n\n"<<endl;
         
-        bool notAltered = k.compareHash(buffer, &len);
+        bool notAltered = k.compareHash((char*)buffer, &len);
         //this means the hash aren't equal
         if(!notAltered) {
             cerr<<"intruder modified something"<<endl;
@@ -400,7 +400,7 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     nonceType servNonce;
     memcpy(&servNonce, &msg[sizeCommand], sizeof(nonceType));
     unsigned int totMsgSize;
-    unsigned char* totMsg;
+    unsigned char* totMsg, *tmpMsg1;
     unsigned int len;
     
     //the client prepares the reply
@@ -424,7 +424,7 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     
     //hash the secret because 
     
-    memcpy(cm -> secret, k.generateHash(secret, &len), hashLen);
+    memcpy(cm -> secret, k.generateHash((char*)secret, &len), hashLen);
     //cm -> padding = generatePadding(&len);
     //set the mode to asymmetric
     mode = Asymmetric;
@@ -439,27 +439,31 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     memcpy(&totMsg[cliMessageLength], hashMsg, len);
     */
     
-    unsigned int tmpLength = 2* sizeof(nonceType) + len + keySize;
+    unsigned int tmpLength = 2* sizeof(nonceType) + len + keySize + hashLen;
     unsigned  char* tmpMsg = new unsigned char[tmpLength];
     memcpy(tmpMsg, (void*)cm, tmpLength);
+    //tmpMsg[tmpLength] = '\0';
+    
+    unsigned int tmp = tmpLength;
     
     totMsgSize = tmpLength + hashLen;
     totMsg = new unsigned char[totMsgSize];
-    memcpy(totMsg, tmpMsg, tmpLength);
-    memcpy(&totMsg[tmpLength], k.generateHash(tmpMsg, &tmpLength), hashLen);
-    bool result = k.compareHash(totMsg, &totMsgSize);
+    memcpy(totMsg, tmpMsg, tmp);
+    unsigned char* hashMsg = k.generateHash((char*)tmpMsg, &tmp); 
+    memcpy(&totMsg[tmpLength], hashMsg, hashLen);
+    bool result = k.compareHash((char*)totMsg, &totMsgSize);
     cout<<result<<endl;
     
     totMsgSize = tmpLength + hashLen;
     //before the sending do all the needed free
     //free(cm -> padding);
-    //free(cm);
+    free(cm);
     //free(tmpKey);
-    //free(hashMsg);
+    free(hashMsg);
     
-    cout<<"printing before the send:";
-    printByte(totMsg, totMsgSize);
-    cout<<endl<<"**************************"<<endl;
+    //cout<<"Printing before the send:"<<endl;
+    //printByte(totMsg, totMsgSize);
+    //cout<<endl<<"**************************"<<endl;
     if( !sendServMsg(totMsg, totMsgSize) ) {
         
         cerr<<"wrong message sent"<<endl;
@@ -470,19 +474,23 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     cerr<<"message sent"<<endl;
     //free(totMsg);
     
+    mode = Symmetric;
+    
     /* after the send of the message the client expects its nonce modified
      * encrypted by means of the symmetric key
      */
-    if( (totMsg = recvServMsg(&totMsgSize) ) == NULL ) {
+    if( (tmpMsg1 = recvServMsg(&totMsgSize) ) == NULL ) {
         
         cerr<<"wrong message received"<<endl;
         free(totMsg);
         return;
         
     }
-    cerr<<"message received"<<endl;
+    cerr<<"message received: "<<totMsgSize<<endl;
     
-    if( !k.compareHash(totMsg, &totMsgSize) ) {
+    printByte(tmpMsg1, totMsgSize);
+    
+    if( !k.compareHash((char*)tmpMsg1, &totMsgSize) ) {
         
         cerr<<"Alert! message altered"<<endl;
         free(totMsg);
@@ -491,7 +499,7 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     }
     
     nonceType recNonce;
-    memcpy((void*)& recNonce, totMsg, totMsgSize);
+    memcpy((void*)& recNonce, tmpMsg1, totMsgSize);
     
     //check if the nonce was received correctly
     if( recNonce == (cNonce - 1) ) {

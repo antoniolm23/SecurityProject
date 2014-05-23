@@ -338,8 +338,11 @@ unsigned char* Server::settleReply(unsigned char* message, unsigned int* size) {
     nonceType clientNonce = cm -> nonceClient;
     clientNonce --;
     free(message);
-    message = (unsigned char*)&clientNonce;
-    return message;
+    unsigned char* tmp = new unsigned char[sizeof(nonceType)];
+    memcpy(tmp, (void*)&clientNonce, sizeof(nonceType));
+    //message = (unsigned char*)&clientNonce;
+    *size = sizeof(nonceType);
+    return tmp;
     
 }
 
@@ -361,7 +364,7 @@ bool Server::verifyReceivedMsg(int sock, unsigned char* message,
     nonceType serverNonce;
     unsigned char* key, *secret;
     //first verifiy the integrity of the message
-    if( ! k.compareHash(message, &len) ) {
+    if( ! k.compareHash((char*) message, &len) ) {
         
         cerr<<"altered message STOP!"<<endl;
         return false;
@@ -452,7 +455,7 @@ unsigned char* Server::RecvClientMsg(int sock, unsigned int* len) {
 /** 
  * Send a client a message
  * NOTE: steganography and cryptography are done here
- * NOTE: the client has only the symmetric key, so we can do just the symmetricÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¹
+ * NOTE: the client has only the symmetric key, so we can do just the symmetricÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¹
  * encryption here
  * @params
  *          sock: socket of the client to who the server is sending
@@ -612,7 +615,7 @@ unsigned char* Server::prepareFile(char* text, int* len) {
         
         //BEGIN HASH COMPUTATION
         int tmpSize = size;
-        unsigned char* hashBuf = k.generateHash(buffer, &size);
+        unsigned char* hashBuf = k.generateHash((char*)buffer, &size);
         size = size + tmpSize; //size of file plus its hash
         defBuffer = new unsigned char[(size)];
         //copy at the beginning the buffer
@@ -841,15 +844,20 @@ bool Server::protocol(char* client) {
     if(verifyReceivedMsg(cl.clientSock, message, size)) {
         
         tmpMessage = settleReply(message, &size);
-        free(message);
-        message = k.generateHash(tmpMessage, &size);
-        free(tmpMessage);
+        message = k.generateHash((char*)tmpMessage, &size);
+        
+        //now I have to concatenate the nonce along with its hash
+        unsigned char* totMsg = new unsigned char[sizeof(nonceType) + size];
+        memcpy(totMsg, tmpMessage, sizeof(nonceType));
+        memcpy(&totMsg[sizeof(nonceType)], message, size);
+        
+        printByte(totMsg, sizeof(nonceType) + size);
         
         //from now on all messages will be exchanged through the shared key
         setEncrypt(cl.clientSock, Symmetric);
         
         //send the message encrypted by means of the secret key
-        if(SendClientMsg(cl.clientSock, message, size) == false) {
+        if(SendClientMsg(cl.clientSock, totMsg, sizeof(nonceType) + size) == false) {
             
             cerr<<"error in sending a message to the client"<<endl;
             return false;
