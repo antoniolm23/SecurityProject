@@ -1,0 +1,2444 @@
+#include "util.h"
+#include "key.h"
+#include "steganography.h"
+
+class Client{
+    
+    //socket of the client
+    int cliSock;
+    //address of the client
+    sockaddr_in cliAddr;
+    //name of the client
+    string name;
+    
+    //eventually name of the file
+    string fileName;
+    
+    bool StegoMode;
+    encryptionMode mode;
+    
+    //file descriptors to be used in the select
+    int fdmax;
+    fd_set master, read_fds;
+    nonceType cNonce;
+    
+    Key k;
+    //tells the client wether if he has to wait a replay or not
+    bool waitFile;
+    
+    //part related to the server
+    sockaddr servAddr;
+    
+public:
+    
+    //constructor
+    Client(int, const char*, const char* );
+    
+    //send the message to the server
+    bool sendServMsg(unsigned char*, unsigned int);
+    //receive message from the server
+    bool recvServMsg(unsigned char*, unsigned int*);
+    
+    //securityProtocol
+    bool securityProtocol();
+    
+    //receive events from the outside world 
+    void receiveEvents();
+    
+    void parseRecMessage(unsigned char* ,unsigned int);
+    
+    void protocol(unsigned char*,unsigned int);
+    void parseKeyCommand(char);
+    void displayHelp();
+    
+    //destroyer
+    ~Client();
+    
+};#include "util.h"
+
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <openssl/sha.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+
+/* 
+ * This file is related to the generation and management of keys
+ * NOTE: 
+ * Secret is the word used to define symmetric encryption
+ * Private and public are the couples used for asymmetric encryption
+ */
+class Key{
+    //file in which there's the key
+    //string secretKey;
+    EVP_CIPHER_CTX* ctx;
+    
+    //allocation and preparation of the context
+    void contextDecryptAlloc(const char* = 0);
+    void contextEncryptAlloc(const char* = 0);
+public:
+    //constructor (generates the key)
+    Key();
+    
+    void secretKeyGenerator();
+    
+    //encrypt and decrypt by means of SECRET KEY
+    unsigned char* secretDecrypt(const unsigned char*,unsigned int*, const char* = 0);
+    unsigned char* secretEncrypt(const unsigned char*,unsigned int*, const char* = 0);
+    
+    //HASH FUNCTIONS
+    unsigned char* generateHash(unsigned char*, unsigned int*);
+    bool compareHash(unsigned char*, unsigned int* );
+    
+    //ASYMMETRIC ENCRYPTION
+    void asymmetricKeyGenerator();
+    unsigned char* asymmetricDecrypt(const char*, const unsigned char*, unsigned int*);
+    unsigned char* asymmetricEncrypt(const char*, const unsigned char*, unsigned int*);
+};/*
+ *This is the server header file, the server is written in C++ and works 
+ *on IPv4 only  
+*/
+#include "util.h"
+#include "key.h"
+#include "steganography.h"
+#define messageLen 128 
+
+class Server {
+    
+    //string that represents the path to the key
+    string keyPath;
+    sockaddr_in servAddr;
+    //standard socket on which the server will accept connections
+    int servSock;
+    //path to the resource addressed by the server
+    string resPath;
+    //file descriptor integers to be managed with the select
+    int fdmax;
+    fd_set master, read_fds;
+    string name;
+    bool steganoMode;
+    
+    Key k;
+    steno s;
+    
+    //list of connected clients
+    list<clientInfo> clientList;
+    
+    nonceType nonce;
+    
+    //PRIVATE FUNCTIONS
+    void parseKeyCommand();
+    void changeKey();
+    void displayHelp();
+    unsigned char* prepareFile(char*, int*);
+    
+    //functions on the list
+    clientInfo searchListSocket(int);
+    clientInfo searchListByName(char*);
+    int getEncrypt(int);
+    void setEncrypt(int , encryptionMode);
+    void setSecret(int, unsigned char*, int);
+    void setKey(int, unsigned char*);
+    const char* getKey(int);
+    unsigned char* getSecret(int);
+    unsigned char* settleReply(unsigned char*, unsigned int*);
+    bool verifyReceivedMsg(int, unsigned char*, unsigned int);
+    
+public:
+    
+    Server(const char*, int);
+    
+    //accept a connection by a client
+    void acceptConnection();
+    
+    /* 
+     * handles the receiving of events coming from outside 
+     * e.g. keyboard or socket
+     */
+    void receiveEvents();
+    
+    //send and receive message to and from a client
+    bool RecvClientMsg(int, unsigned char*, unsigned int*);
+    bool SendClientMsg(int, unsigned char*, unsigned int);
+    
+    /*parses the received message in order to take the right decision*/
+    void parseReceivedMessage(int, unsigned char*, int);
+    
+    bool protocol(char*);
+    
+    //destroyer
+    ~Server();
+};
+#include "util.h"
+
+/* 
+ * Stenography is a tecnique that allows us to hide a message into an image
+ * many tecniques have been proposed, for sake of simplicity I will implement
+ * the LSB one, The first byte after the header will provide the dimension of
+ * the message, so that everything is self-contained, of course this pose a 
+ * serious concern since the message is in the clear and an adversary may 
+ * play the role of the server, here we will use that also the assumption that
+ * the hash is included in the message and further that the server applies 
+ * watermarking to the portion of the image where there is the message
+ * (not implemented)
+ */
+class steno{
+    
+public:
+    
+    steno() {};
+    
+    //Least Significant Bit Steganography
+    unsigned char* LSBSteno(unsigned char*,unsigned int*); 
+    unsigned char* readMessage(unsigned char*, unsigned int*);
+};#pragma once
+#include <iostream>
+#include <cstdlib>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <string>
+#include <netinet/in.h>
+#include <list>
+#include <cstring>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <stdio.h>
+
+#define TODOLOGIN -1
+#define DONELOGIN 0
+#define KEYEXCHANGED 3
+#define NONCEBEGIN 0xff34
+#define keySize 16
+#define pubBits 1024
+#define hashLen 20 //use of sha1 so 20 bytes
+#define maxClientName 30
+#define sizeCommand 6
+
+using namespace std;
+
+/* 
+ * describes if we want an encryption and what kind of encryption we want
+ */
+enum encryptionMode  {None, Symmetric, Asymmetric};
+
+//define the type of the nonce to have more flexibility in the whole program
+typedef unsigned int nonceType;
+
+/*
+ * struct that represents a client:
+ * name of him, his associated socket and address
+ */
+struct clientInfo{
+    
+    string Name;            //name of the client
+    sockaddr * clientAddr;  //address of the client
+    int clientSock;         //socket of the client
+    int protoStep;          //step of the protocol
+    int expMsgLen;          //expected message len
+    encryptionMode encrypt; //use encryption?
+    unsigned char secret[hashLen];  //hash of the secret of the client
+    
+};
+
+//client message sent to the server in the 2nd step of the protocol
+struct cliMessage {
+    
+    int nonceClient;
+    int nonceServer;
+    unsigned char key[keySize];
+    unsigned char secret[hashLen];
+    char* padding; //includes the hash of the message
+    
+};
+
+//BEGIN UTILITIES FUNCTION USEFUL IN THE CLEAR
+/* 
+ * message structure:
+ * length of the message, text of the message
+ */
+struct message{
+    unsigned int len;
+    char* text;
+};
+//message management (very useful when all runs in the clear)
+message receiveMessage(int, sockaddr* = 0);
+bool sendMessage(int, message, sockaddr* = 0);
+
+//END UTILITIES FUNCTIONS USEFUL IN THE CLEAR
+
+//BEGIN CRYPTO UTILITIES FUNCTIONS
+
+//file management for the key
+unsigned char* readKeyFile(const char*, int);
+
+//file management
+void writeFile(const char*, unsigned char*, unsigned int);
+char* readFile(const char*, unsigned int*);
+
+//printbyte
+void printByte(unsigned char*, int);
+
+/* 
+ * redefinition of the basic primtives of send and receive 
+ * (useful when we need to deal with the exchange of secret messages)
+ */
+bool sendBuffer(int,unsigned char*,unsigned int, sockaddr* = 0);
+bool receiveBuffer(int,unsigned char*,unsigned int*, sockaddr* = 0);
+
+//END CRYPTO UTILITIES FUNCTIONS
+
+//function to generate a nonce
+nonceType generateNonce();
+char* generatePadding();#include "client.h"
+
+/** 
+ * Client constructor
+ * @params:
+ *          port: port on which the client is attached to
+ *          name: name of the client
+ *          server: name of the server
+ */
+Client::Client(int port, const char* n, const char* server){
+    
+    //name of the client
+    name = string(n);
+    
+    //socket of the client
+    cliSock = socket(AF_INET, SOCK_STREAM, 0);
+    
+    //ip address of the client
+    bzero(&cliAddr, sizeof(cliAddr));
+    cliAddr.sin_family=AF_INET;
+    cliAddr.sin_port=htons(port);
+    struct hostent* he;
+    if(inet_aton(server, &cliAddr.sin_addr)!=0) {
+        cerr<<"client created\n";
+        he=gethostbyname(server);
+        if(!he) {
+            cerr<<"Can't solve server name"<<server<<" \n";
+            exit(1);
+        }
+        cliAddr.sin_addr =* (struct in_addr*) he->h_addr;
+    }
+    
+    //connect with the socket of the server
+    if(connect(cliSock, (struct sockaddr*) &cliAddr, sizeof(cliAddr) )<0) {
+        cerr<<"Can't connect socket tcp\n";
+        exit(-1);
+    }
+    
+    waitFile = false;
+    
+    /* 
+     * generate a secretKey, the key has to be generated just 
+     * once in the whole program
+    */
+    k = Key();
+    
+    mode = None;
+    
+}
+
+/** 
+ * Receive a message from the server
+ * @params:
+ *          msg: (OUT) the received message
+ *          len: (OUT) the size of the message
+ * @return 
+ *         wether the message was received correctly or not
+ */
+bool Client::recvServMsg(unsigned char* msg, unsigned int* len) {
+    
+    unsigned int size = *len;
+    unsigned char* decsMsg;
+    
+    //if the receive has gone wrong then return false
+    if( !receiveBuffer(cliSock, msg, &size) ) {
+        return false;
+    }
+    
+    //check if we have to extract the message from the image
+    if(StegoMode) {
+        
+        steno s = steno();
+        decsMsg = (unsigned char*)s.readMessage(msg, &size);
+        free(msg);
+        msg = decsMsg;
+        
+    }
+    
+    //check if we have already exchanged a protocol with the key
+    if( mode == Symmetric ) {
+        
+        decsMsg = k.secretDecrypt(msg, &size);
+        free(msg);
+        msg = decsMsg;
+        
+    }
+    
+    *len = size;
+    return true;
+    
+}
+
+/**
+ * Send a message to the server
+ * @params
+ *          mesg: the text of the message the client sends
+ *          len: length of the text
+ * @returns
+ *          the result of the send
+ * NOTE: the size of messages may be sent in the clear since if the adversary 
+ * does anything against the communication, then the parties are able to detect 
+ * that there's an intruder eavesdropping or manipulating the flow of messages
+ */
+bool Client::sendServMsg(unsigned char* msg, unsigned int len){
+    
+    unsigned int size = len;
+    unsigned char* esMsg;
+    
+    //checks if encryption mode is symmetric, then do it before sending
+    if( mode == Symmetric ) {
+        
+        esMsg = k.secretEncrypt(msg, &size);
+        free(msg);
+        msg = esMsg;
+        
+    }
+    
+    //checks if encryption mode is asymmetric, then do it before sending
+    if( mode == Asymmetric ) {
+        
+        esMsg = k.asymmetricEncrypt(msg, &size);
+        free(msg);
+        msg = esMsg;
+        
+    } 
+    
+    //if the flag is UP then do the steganography
+    if(StegoMode == true) {
+        
+        esMsg = s.LSBSteno(msg, &size);
+        //prepare the variables in order to be compliant with the same send
+        free(msg);
+        msg = esMsg;
+        
+    }
+    
+    return sendBuffer(cliSock, msg, size);
+    
+}
+
+void Client::displayHelp() {
+    cout<<"h -> shows the help!\n"
+    <<"s -> insert a message to send to the server\n"
+    <<"k -> change the couple of private and public key"
+    <<"c -> insert a command"
+    <<"f -> request a file"
+    <<"l -> the client does a login with its name"<<endl;
+    /*
+     * FIXME: at first the name and passowrd are sent in the clear, 
+     * modify it with the usage of asymmetric encryption.
+     */ 
+}
+
+/* 
+ * Parse the command received from the keyboard
+ */
+/* 
+ * NOTE Possible commands are:
+ * h -> help displayHelp
+ * s -> new message to be sent to the server
+ * k -> change the couple of public and private key
+ * c -> insert a command  
+ * p -> to start the protocol with the nonce received by the server
+ */
+/* 
+ * NOTE: commands to be given to the server are 5 bytes plus a space,
+ * possibilities are: 
+ * fireq: requests a file from the server
+ * login: does a login to the server
+ * encry: encrypt a message
+ * mexit: quit from the server
+ * steno: required steganography
+ */
+void Client::parseKeyCommand(char k) {
+    
+    char text[100];
+    char secret[100];
+    //command plus the text
+    unsigned char* textMsg;
+    int len;
+    bool messageToSend = false, exit = false;
+    
+    string message;
+    const char* login = "login ";
+    const char* fireq = "fireq ";
+    const char* enc = "encry ";
+    const char* quit = "mexit ";
+    const char* steganography = "steno ";
+    
+    //check the command typed by the client
+    /* 
+     * at the end of the switch we will have the whole message in the variable
+     * message and its len in the vairable len
+     */
+    switch(k) {
+        case 'h':
+            displayHelp();
+            break;
+        //this means a new message to send in the clear
+        case 'c':
+            messageToSend = true;
+            cin>>text;
+            len = strlen(text);
+            textMsg = new unsigned char[len + 1];
+            memcpy(textMsg, text, len);
+            break;
+        //file request
+        case 'f':
+            messageToSend  = true;
+            cin>>text;
+            //request a file
+            message = fireq + string(text);
+            len = strlen(message);
+            textMsg = new unsigned char[len + 1];
+            strcpy(textMsg, message.c_str());
+            waitFile = true;
+            break;
+        //login command
+        /* 
+         * login + clientName + hash of the secret
+         */
+        case 'l':
+            messageToSend = true;
+            cout<<"Insert name: ";
+            cin>>text;
+            len = strlen(text);
+            cout<<"Insert the secret: ";
+            cin>>secret;
+            int len1 = strlen(secret);
+            unsigned char* hs = k.generateHash(secret, &len1);
+            message = login + string(text);
+            free(hs);
+            len = len + len1;
+            textMsg = new unsigned char[len];
+            memcpy(textMsg, message.c_str(), len - len1 );
+            memcpy(&textMsg[len - len1], hs, len1);
+            break;
+        //set symmetric encryption mode
+        case 'e':
+            mode = Symmetric;
+            break;
+        //set asymmetric encryption mode
+        case 'p':
+            mode = Asymmetric;
+            break;
+        //tells to the server and prepare the client to quit
+        case 'q':
+            messageToSend = true;
+            textMsg = new unsigned char[sizeCommand];
+            memcpy(textMsg, quit, sizeCommand);
+            len = (unsigned int)sizeCommand;
+            exit = true;
+            break;
+        //set the parameters to tell to the server to apply steganography
+        case 's':
+            messageToSend = true;
+            textMsg = new unsigned char[sizeCommand];
+            memcpy(textMsg, steganography, sizeCommand);
+            len = (unsigned int)sizeCommand;
+            break;
+        default:
+        break;
+        
+    }
+    
+    if(!messageToSend)
+        return;
+    
+    //free the virtual allocated memory
+    if(textMsg != NULL)
+        delete(textMsg);
+    
+    if(exit == true) 
+        exit(1);
+    
+}
+
+/** 
+ * Parse the message received by the server, in this case the waitReplay
+ * to see if the client can do an assumption on the received message
+ * @params:
+ *          msg: the received message
+ */
+void Client::parseRecMessage(unsigned char* text, int size) {
+    
+    int size;
+    unsigned char* buffer;
+    
+    //first check the message
+    if(strcmp (text, "wrong file") == 0) {
+        cerr<<"wrong file requested"<<endl;
+        return;
+    }
+    
+    //wait for a file and decrypts it
+    if(waitFile == true) {
+        Key k = Key(); 
+        size = msg.len;
+        buffer = k.secretDecrypt((const unsigned char*)msg.text, &size);
+        //printByte(buffer, size);
+        
+        //cout<<"********************\n\n\n**************\n\n"<<endl;
+        
+        bool notAltered = k.compareHash((char*)buffer, &size);
+        //this means the hash aren't equal
+        if(!notAltered) {
+            cerr<<"intruder modified something"<<endl;
+            exit(-1);
+        }
+        cout<<buffer<<endl;
+        cout<<" *** "<<msg.text<<" *** "<<endl;
+        writeFile("out.pdf", buffer, size);
+        delete(buffer);
+        delete(msg.text);
+    }
+    
+    if(strcmp(text, "Nonce ", sizeCommand) == 0) {
+        
+        protocol(text, size);
+        
+    } 
+    
+}
+
+/* 
+ * Receive events from the outside world, server socket or keyboard
+ */
+void Client::receiveEvents() {
+    
+    //cerr<<"receive events\n";
+    fdmax = cliSock;
+    //infinite loop to accept events
+    while(1) {
+        
+        FD_SET(0, &read_fds);
+        FD_SET(cliSock, &read_fds);
+        
+        int sel = select(fdmax+1, &read_fds, NULL, NULL, NULL);
+        if( sel <= 0) {
+            cerr<<" error in the select "<<name<<" \n";
+            exit(1);
+        }
+        
+        //cerr<<"receive events"<<endl;
+        
+        //this means keyboard event
+        if(FD_ISSET(0, &read_fds)) {
+            //cout<<"key pressed"<<endl;
+            char k;
+            cin>>k;
+            parseKeyCommand(k);
+        }
+        
+        /* 
+         * roll all the file descriptors and
+         * checks if the file descriptor has been set
+         */ 
+        for(int i=1; i<=fdmax; i++) {
+            
+            //cerr<<"for cycle "<<i<<endl;
+            
+            if(FD_ISSET(i, &read_fds)) {
+                
+                //receive the message from the server and parse it
+                if(i == cliSock) {
+                    
+                    message msg = recvServMsg(i);
+                    parseRecMessage(msg);
+                    
+                }
+                
+            }
+        }
+    }
+}
+
+/**
+ * This is the function to establish the key between the client and the server
+ * The message received from the server hash the following structure:
+ *  "Nonce " numberNonce
+ * @params:
+ *          msg: the message received from the server
+ *          size: the size of the message
+ */
+void Client::protocol(unsigned char* msg, unsigned int size) {
+    
+    nonceType servNonce = msg[sizeCommand];
+    unsigned int cliMessageLength, totMsgSize;
+    unsigned char* totMsg;
+    int len;
+    
+    //the client prepares the reply
+    cliMessage* cm = new cliMessage;
+    cm -> nonceServer = servNonce;
+    
+    cNonce = cm -> nonceClient = generateNonce();
+    //generate the key and then read it
+    k.secretKeyGenerator();
+    //FIXME: to optimize modifying something
+    unsigned char* tmpKey = readKeyFile("key.txt", (int)keySize); 
+    memcpy( cm -> key, tmpKey, keySize);
+    free(tmpKey);
+    
+    //ask the client to insert the secret
+    cout<<"Insert secret"<<endl;
+    unsigned char secret[200];
+    cin>>secret;
+    
+    //hash the secret because 
+    cm -> secret = k.generateHash(secret, strlen(secret));
+    cm -> padding = generatePadding(&len);
+    //set the mode to asymmetric
+    mode = Asymmetric;
+    
+    //do te preparation of the message
+    cliMessageLength = 2 * sizeof(nonceType) + len + hashLen + keySize; 
+    unsigned char* hashMsg = k.generateHash((unsigned int*)cm, &len);
+    totMsgSize = cliMessageLength + len;
+    totMsg = new unsigned char[totMsgSize];
+    memcpy(totMsg, (void*)cm, cliMessageLength);
+    memcpy(&totMsg[cliMessageLength], hashMsg, len);
+    
+    //before the sending do all the needed free
+    free(cm -> padding);
+    free(cm);
+    free(tmpKey);
+    free(hashMsg);
+    
+    if( !sendServMsg(totMsg, totMsgSize) ) {
+        
+        cerr<<"wrong message sent"<<endl;
+        free(totMsg);
+        return;
+        
+    }
+    free(totMsg);
+    
+    /* after the send of the message the client expects its nonce modified
+     * encrypted by means of the symmetric key
+     */
+    if( !recvServMsg(totMsg, &totMsgSize) ) {
+        
+        cerr<<"wrong message received"<<endl;
+        free(totMsg);
+        return;
+        
+    }
+    
+    if( !k.compareHash(totMsg, &totMsgSize) ) {
+        
+        cerr<<"Alert! message altered"<<endl;
+        free(totMsg);
+        return;
+        
+    }
+    
+    nonceType recNonce;
+    memcpy((void*)& recNonce, totMsg, totMsgSize);
+    
+    //check if the nonce was received correctly
+    if( recNonce == (cNonce - 1) ) {
+        
+        mode = Symmetric;
+        return;
+        
+    }
+    
+    else {
+        
+        mode = None;
+        cerr<<"Wrong protocol execution"<<endl;
+        return;
+        
+    }
+    
+    
+}
+
+
+Client::~Client(){
+
+}#include "client.h"
+
+//main client
+int main(int argc, char **argv) {
+    cout << "Hello, world!" << std::endl;
+    
+    Client c = Client(1238, "anto", "localhost");
+    c.receiveEvents();
+    
+    return 0;
+}
+#include "key.h"
+#include "util.h"
+
+/* 
+ * Constructor of the class
+ */
+Key::Key() {
+    
+    OpenSSL_add_all_digests();
+    OpenSSL_add_all_algorithms();
+    
+}
+
+/*
+ * SYMMETRIC ENCRYPTION
+ */
+
+/* 
+ * this is the constructor of the class key, it aims is to generate the key
+ * and then store the key in a file
+ */
+void Key::secretKeyGenerator() {
+    unsigned char* key;
+    int b;
+    b=keySize;
+    key=new unsigned char[b];
+    RAND_bytes(key,b);
+#ifdef _DEBUG
+    for(i=0; i<b; i++) 
+        printbyte(key[i]);
+    //printbyte(key[b-1]);
+    printf("\n");
+#endif
+    writeFile("key.txt", key, b);
+    delete(key);
+}
+
+/* 
+ * Allocate the context for decryption
+ * @params:
+ *          file: the file from which retrieve the key
+ */
+void Key::contextDecryptAlloc(const char* file) {
+    
+    int b = keySize;
+    ctx = new EVP_CIPHER_CTX;
+    unsigned char* key;
+    if(file == 0)
+        key = readKeyFile("key.txt", b);
+    else
+        key = readKeyFile(file, b);
+    EVP_CIPHER_CTX_init(ctx);
+    EVP_DecryptInit(ctx, EVP_des_ecb(), NULL, NULL);
+    EVP_DecryptInit(ctx, NULL, key, NULL);
+    EVP_CIPHER_CTX_set_key_length(ctx,keySize);
+    delete(key);
+    
+}
+
+/*
+ * Allocate the context for encryption
+ * @params: 
+ *          file: the name of the file from which retrieve the key
+ */
+void Key::contextEncryptAlloc(const char* file) {
+    
+    int b = keySize;
+    ctx=new EVP_CIPHER_CTX;
+    unsigned char* key;
+    if(file == 0)
+        key = readKeyFile("key.txt", b);
+    else 
+        key = readKeyFile(file, b);
+    EVP_CIPHER_CTX_init(ctx);
+    EVP_EncryptInit(ctx,EVP_des_ecb(),NULL,NULL);
+    EVP_EncryptInit(ctx,NULL,key,NULL);
+    EVP_CIPHER_CTX_set_key_length(ctx,keySize);
+    delete(key);
+    
+}
+
+/*
+ * Encripts the buffer and returns the size of the decrypted buffer and 
+ * the encrypted buffer
+ * @params:
+ *          buffer: the buffer to be encrypted
+ *          size: (INOUT) at first is the size of the buffer and then returns 
+ *                  the size of the encrypted buffer
+ *          file: (OPTIONAL) the file from which retrieve the key
+ * @returns:
+ *          the encrypted buffer
+ * NOTE: memory allocation remember to delete
+ */
+unsigned char* Key::secretEncrypt(const unsigned char* buffer,unsigned int* size, 
+                                  const char* file) {
+    
+    contextEncryptAlloc(file);
+    
+    //temporary buffer used for encryption
+    unsigned char* crbuf = 
+        new unsigned char[*size + EVP_CIPHER_CTX_block_size(ctx)];
+    int byteo, pos, byteof, tot;               //output byte  
+    EVP_EncryptUpdate(ctx, crbuf, &byteo, buffer, *size);
+    pos=byteo;
+    EVP_EncryptFinal(ctx, &crbuf[pos], &byteof);
+    tot=byteo+byteof;
+    *size=tot;
+    delete (ctx);
+    return crbuf;
+}
+
+/* 
+ * Decrypts the buffer and returns the decrypted buffer along with its size
+ * that is represented by the inout parameter size
+ * @params:
+ *          buffer: the buffer to decrypt
+ *          size: (INOUT) dimension of both buffers, at first the one to be 
+ *                  decrypted and the decrypted one
+ *          file: the file from which retrieve the key
+ * @return:
+ *          the decrypted buffer
+ * NOTE: memory allocated here rmemember to delete
+ */
+unsigned char* Key::secretDecrypt(const unsigned char* buffer,unsigned int* size,
+                                  const char* file) {
+    
+    contextDecryptAlloc(file);
+    unsigned char* debuffero =
+        new unsigned char [(*size) + EVP_CIPHER_CTX_block_size(ctx)];
+    int pos, byteo, byteof, tot;             //output byte
+    EVP_DecryptUpdate(ctx, debuffero, &byteo, buffer, *size);
+    pos = byteo;
+    EVP_DecryptFinal(ctx, &debuffero[pos], &byteof);
+    tot = byteo+byteof;
+    *size=tot;
+    delete (ctx);
+    return debuffero;
+    
+}
+
+/* 
+ * HASH COMPUTATION
+ */
+
+/* 
+ * Function that generates the hash of a message and returns the result
+ * and the size
+ * @params:
+ *          buffer: buffer on which compute the hash
+ *          size: (INOUT) at the beginning size of the message, 
+ *                          then size of the hash
+ * @returns:
+ *          the computed hash 
+ */
+unsigned char* Key::generateHash(unsigned char* buffer,unsigned int* size) {
+    
+    const char* alg = "sha1";
+    int hashSize, rest;
+    unsigned char* hashBuf;
+    static const int k = 512;
+    
+    //context allocation and preparation
+    const EVP_MD* md=EVP_get_digestbyname(alg);
+    EVP_MD_CTX* mdctx;
+    mdctx = new EVP_MD_CTX;
+    //context preparation
+    EVP_MD_CTX_init(mdctx);
+    EVP_DigestInit(mdctx, md);
+    //end context allocation
+    
+    //check the correct allocation
+    if(mdctx==NULL) {
+        cerr<<"error1 detected\n";
+        exit(-1);
+    }
+    if(md==NULL) {
+        cerr<<"error2 detected\n";
+        exit(-1);
+    }
+    
+    //allocate buffer
+    hashSize = EVP_MD_size(md);
+    hashBuf = new unsigned char[hashSize];
+    
+    //prepare the various integer to compute the hash
+    rest = *size % k;
+    int ptr = 0;
+    
+    //BEGIN HASH COMPUTATION
+    for(unsigned int i = 0; i < (*size)/k; i++) {
+        EVP_DigestUpdate(mdctx, &buffer[ptr], k);
+        ptr += k;
+    }
+    
+    if(rest) {
+        EVP_DigestUpdate(mdctx, &buffer[ptr], rest);
+    }
+    
+    //put the computed hash in hashBuf and size is given
+    EVP_DigestFinal_ex(mdctx, hashBuf,(unsigned int*) size);
+    //END HASH COMPUTATION
+    
+    //hash context deallocation
+    EVP_MD_CTX_cleanup(mdctx);
+    free(mdctx);
+    
+    return hashBuf;
+    
+}
+
+/* 
+ * Compare the given hash with the computed one to state if the message 
+ * has been modified by an adversary
+ * NOTE: the buffer and the size passed as parameter includes the computed hash
+ * @params:
+ *          buffer: given buffer on which compute the hash
+ *          size: (INOUT) size of the buffer plus the hash at first, without it
+ *                        at the end
+ * @return:
+ *          true if the hashes are equal, false otherwise
+ */
+bool Key::compareHash(unsigned char* buffer,unsigned int* size) {
+    
+    printByte((unsigned char*)buffer, *size);
+    
+    const char* alg = "sha1";
+    unsigned int hashSize, rest;
+    unsigned char* hashBuf;
+    static const int k = 512;
+    bool result = false;
+    
+    //context allocation and preparation
+    const EVP_MD* md=EVP_get_digestbyname(alg);
+    EVP_MD_CTX* mdctx;
+    mdctx = new EVP_MD_CTX;
+    //context preparation
+    EVP_MD_CTX_init(mdctx);
+    EVP_DigestInit(mdctx, md);
+    //end context allocation
+    
+    //check the correct allocation
+    if(mdctx==NULL) {
+        cerr<<"error1 detected\n";
+        exit(-1);
+    }
+    if(md==NULL) {
+        cerr<<"error2 detected\n";
+        exit(-1);
+    }
+    
+    //allocate buffer
+    hashSize = EVP_MD_size(md);
+    hashBuf = new unsigned char[hashSize];
+    
+    //since the buffer contains at its end its hash, we need to toggle it
+    *size -= hashSize;
+    
+    //prepare the various integer to compute the hash
+    rest = *size % k;
+    int ptr = 0;
+    
+    //BEGIN HASH COMPUTATION
+    for(unsigned int i = 0; i < (*size)/k; i++) {
+        EVP_DigestUpdate(mdctx, &buffer[ptr], k);
+        ptr += k;
+    }
+    
+    if(rest) {
+        EVP_DigestUpdate(mdctx, &buffer[ptr], rest);
+    }
+    
+    //put the computed hash in hashBuf and size is given
+    EVP_DigestFinal_ex(mdctx, hashBuf, &hashSize);
+    //END HASH COMPUTATION
+    
+    //printByte((unsigned char*)hashBuf, hashSize);
+    //printByte((unsigned char*)&buffer[*size], hashSize);
+    
+    if(memcmp(hashBuf, &buffer[*size], hashSize) == 0)
+        result = true;
+    
+    //hash context deallocation
+    EVP_MD_CTX_cleanup(mdctx);
+    delete(mdctx);
+    
+    return result;
+    
+}
+
+/* 
+ * ASYMMETRIC ENCRYPTION
+ */
+
+/* 
+ * Generates the private and the public key and put them into 2 files named 
+ * respectively priv.pem and pub.pem
+ */
+void Key::asymmetricKeyGenerator(){
+    
+    const char* file_pem="priv.pem";    //private key file
+    const char* file_pem_pub="pub.pem";//public key file
+    FILE* fp;         //file descriptor
+    int bits = pubBits;        //bit della chiave
+    unsigned long exp=RSA_F4; //exponent to generate prime numbers
+    RSA* rsa;
+    
+    rsa=RSA_generate_key(bits, exp, NULL, NULL);//generate the key
+    fp=fopen(file_pem, "w");
+    const char* kstr="password";
+    PEM_write_RSAPrivateKey(fp, rsa, EVP_des_ede3_cbc(), 
+                            (unsigned char*)kstr, strlen(kstr), 
+                            NULL, NULL);//write the private key in the file
+    fclose(fp);
+    fp=fopen(file_pem_pub, "w");
+    PEM_write_RSAPublicKey(fp, rsa);
+    fclose(fp);
+    RSA_free(rsa);
+}
+
+/*
+ * function that manages rsa public context allocating it and reading 
+ * the public key
+ * @params: 
+ *          name: name of the file in which there's the public key
+ * @return:
+ *          RSA allocated context
+ */
+RSA* rsaPub(const char* name) {
+    
+    RSA* rsa;
+    
+    //RSA CONTEXT ALLOCATION
+    rsa = RSA_new();
+    
+    FILE* fp = fopen(name, "r");    //opens the file
+    //check if fp exists
+    if(fp == NULL) {
+        fprintf(stderr, "doesn't exist the file\n");
+        return NULL;
+    }
+    
+    //read the public key in RSA
+    rsa = PEM_read_RSAPublicKey(fp, &rsa, NULL, NULL);
+    //check if rsa exists
+    if(rsa == NULL) {
+        fprintf(stderr, "rsa doesn't exist\n");
+        return NULL;
+    }
+    
+    return rsa;
+    
+}
+
+/*
+ * function that manages rsa private context allocating it and reading 
+ * the private key
+ * @params: 
+ *          name: name of the file in which there's the public key
+ * @return:
+ *          RSA allocated context
+ */
+RSA* rsaPriv(const char* name,const char* pwd) {
+    
+    RSA* rsa;
+    rsa = RSA_new();
+    FILE* fp = fopen(name, "r");          //opening of the file
+    rsa = PEM_read_RSAPrivateKey(fp, &rsa, NULL, 
+                                 (void*)pwd);//read the private key
+    fclose(fp);
+    
+    if((rsa == NULL)||(rsa->n == NULL)) { 
+        cerr<<"RSA is NULL"<<endl;
+        return NULL;
+    }
+    
+    return rsa;
+}
+
+/* 
+ * Function that by means of the public key encrypts a message
+ * @params:
+ *          file: the file in which there's the public key
+ *          text: the text of the message to encrypt
+ *          size (INOUT): at first is the size of the message to encrypt
+ *                      then the size of the encrypted message
+ * @returns: 
+ *          the encrypted message
+ * NOTE: the length of the message to encrypt MUST BE smaller than the key length
+ */
+unsigned char* Key::asymmetricEncrypt( const char* file, 
+                                       const unsigned char* text, 
+                                       unsigned int* size) {
+    
+    unsigned char* tmp;
+    RSA* rsa;
+    int s;                //dimension of the encrypted key
+    
+    //pub.pem file in which there's the public key
+    rsa = rsaPub(file);
+    if(rsa == NULL) {
+        cerr<<"error in allocating the rsa context"<<endl;
+        return NULL;
+    }
+    
+    s = RSA_size(rsa);
+    tmp=new unsigned char[s];
+    //now we can call the encryption function
+    RSA_public_encrypt(*size, text, tmp, rsa, RSA_PKCS1_PADDING);
+    
+    RSA_free(rsa);
+    *size=s;
+    return tmp;
+}
+
+/* 
+ * Function that by means of the private key decrypts a message
+ * @params:
+ *          file: the file in which there's the private key
+ *          text: message to decrypt
+ *          size (INOUT): at first the size of the encrypted message
+ *                      then the size of the decrypted message
+ */
+unsigned char* Key::asymmetricDecrypt(
+    const char* file, const unsigned char* text, unsigned int* size){
+    
+    RSA* rsa;
+    
+    rsa = rsaPriv(file, "password");
+    if(rsa == NULL) {
+        return NULL;
+    }
+    
+    //the message is at most as long as the encrypted message
+    unsigned char* retBuffer = new unsigned char[*size];
+    int len = 
+            RSA_private_decrypt(*size, text, retBuffer, rsa, RSA_PKCS1_PADDING);
+    *size = len;
+    
+    return retBuffer;
+    
+}
+#include "server.h"
+
+//main server
+int main(int argc, char **argv) {
+    cout << "Hello, world!" << std::endl;
+    
+    Server s = Server("localhost", 1238);
+    s.receiveEvents();
+    
+    //steno s1 = steno();
+    //cout<<size<<endl;
+    //s1.LSBSteno(tmp, &size);
+    //cout<<len<<endl;
+    //s1.readMessage("hello.bmp", &len);
+    
+    return 0;
+}
+#include "server.h"
+
+/** 
+ * Constructor of the class server
+ * @params: 
+ *          ip address of the server
+ *          port on which the server accepts connections 
+ */
+Server::Server(const char* host, int port) {
+    
+    //creates the socket
+    servSock = socket(AF_INET, SOCK_STREAM, 0);
+    
+    //filling the sockaddr_in structure
+    bzero(&servAddr, sizeof(servAddr));
+    servAddr.sin_family=AF_INET;
+    servAddr.sin_port=htons(port);
+    hostent* he;
+    if(inet_aton(host, &servAddr.sin_addr)!=0) {
+        he=gethostbyname(host);
+        if(!he) {
+            cerr<<"Can't solve server name"<<host<<" \n";
+            exit(1);
+        }
+        servAddr.sin_addr =* (struct in_addr*) he->h_addr;
+    }
+
+    //changing the socket in listen type
+    if(bind(servSock, (struct sockaddr*) &servAddr, sizeof(servAddr))<0) {
+        cerr<<"Error in binding of the socket \n";
+        exit(-1);
+    }
+    if(listen(servSock, 0)<0) {
+        cerr<<"Error in listening of the socket\n";
+        exit(-1);
+    }
+
+    //preparing the file descriptors
+    fdmax=servSock;
+    
+    steganoMode = true;
+
+    //initialize the string
+    name = string(host);
+    
+    clientList = list<clientInfo>();
+    
+    nonce = (nonceType)NONCEBEGIN;
+    k = Key();
+    s = steno();
+    
+    cout<<"server connected at port "<<port<<" host "<<host<<endl;
+    
+}
+
+/* *****************************************************************************
+ * FUNCTIONS THAT OPERATE ON THE LIST
+ * ****************************************************************************/
+
+/** 
+ * Search in the list the client to which belongs the socket
+ * @params:
+ *          s: socket number
+ * @returns
+ *          Client if present otherwise 0
+ */
+clientInfo Server::searchListSocket(int sock) {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    clientInfo t;
+    
+    for(; p != q; p++) {
+
+        if(p -> clientSock == sock) {
+            t.Name = p -> Name;
+            t.clientAddr = p -> clientAddr;
+            t.clientSock = p -> clientSock;
+            t.protoStep = p -> protoStep;
+            t.expMsgLen = p -> expMsgLen;
+            t.encrypt = p -> encrypt;
+            return t;
+        }
+    }
+    
+    return t;
+    
+}
+
+/** 
+ * Search a client in the list basing on its name
+ * @params: 
+ *          name of the client
+ * @return:
+ *          clientInfo structure
+ */
+clientInfo Server::searchListByName(char* client) {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    clientInfo t;
+    
+    for(; p != q; p++) {
+
+        if(strncmp(p -> Name.c_str(), client, p -> Name.length()) == 0) {
+            t.Name = p -> Name;
+            t.clientAddr = p -> clientAddr;
+            t.clientSock = p -> clientSock;
+            t.protoStep = p -> protoStep;
+            t.expMsgLen = p -> expMsgLen;
+            t.encrypt = p -> encrypt;
+            return t;
+        }
+    }
+    
+    return t;
+    
+}
+
+/** 
+ * gets if the client has already had the key exchange protocol
+ * @params:
+ *          sock: the socket of the client, useful in the search
+ * @return:
+ *          returns whether the client has already had the exchange protocol
+ */
+int Server::getEncrypt(int sock){
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    clientInfo t;
+    
+    for(; p != q; p++) {
+
+        if(p -> clientSock == sock) {
+            
+            return p -> encrypt;
+            
+        }
+    }
+    
+    return false;
+    
+}
+
+/**
+ * sets the encrypt parameter to true
+ * @params:
+ *          sock: the socket of the client, useful in the search
+ *          type: the type of encryption we decided to use
+ */
+void Server::setEncrypt(int sock, encryptionMode type) {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    clientInfo t;
+    
+    for(; p != q; p++) {
+
+        if(p -> clientSock == sock) {
+            
+            p -> encrypt = type;
+            
+        }
+    }
+    
+}
+
+/**
+ * Set the shared secret between the client and the server
+ * @params:
+ *          sock: socket to do the search
+ *          secret: the shared secret
+ *          size: size of the shared secret
+ */
+void Server::setSecret(int sock, unsigned char* secret, int size) {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    clientInfo t;
+    
+    for(; p != q; p++) {
+        
+        //if the socket correspond then do a copy
+        if(p -> clientSock == sock)
+            memcpy(p -> secret, secret, size);
+    }
+    
+}
+
+/**
+ * Set the shared key between the client and the server 
+ * (stored into an hidden file named after the client name)
+ * @params:
+ *          sock: socket to do the search
+ *          key: the key to be stored
+ */
+void Server::setKey(int sock, unsigned char* key) {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    
+    for(; p != q; p++) {
+
+        if(p -> clientSock == sock) {
+            
+            string filename = "." + p -> Name;
+            writeFile((const char*)filename.c_str(), key, keySize);
+            
+        }
+    }
+    
+}
+
+/**
+ * Get the shared key
+ * @params: 
+ *          sock: the socket of the client in order to do the search
+ * @return: 
+ *          the filename that contains the key
+ */
+const char* Server::getKey(int sock) {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    
+    for(; p != q; p++) {
+
+        if(p -> clientSock == sock) {
+            
+            string filename = "." + p -> Name;
+            return (const char*)filename.c_str();
+            
+        }
+    }
+    
+    return NULL;
+    
+}
+
+/**
+ * get the shared secret between the client and the server
+ * @params:
+ *          sock: to do the search
+ *          size: (OUT) size of the shared secret
+ * @return:
+ *          the shared secret
+ */
+unsigned char* Server::getSecret(int sock) {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    
+    for(; p != q; p++) {
+
+        if(p -> clientSock == sock) {
+            
+            if( p -> secret != NULL) {
+                return p -> secret;
+            }
+            
+        }
+    }
+    
+    return NULL;
+    
+}
+
+/*******************************************************************************
+ * PRIVATE FUNCTIONS TO DEAL WITH THE PROTOCOL
+ * ****************************************************************************/
+
+/**
+ * this function is used in the second step of the protocol and it's useful
+ * for key confirmation, the server takes the client's nonce, modifies it
+ * and sends it back to the source. The structure of the received message is:
+ * |Nc |Ns |Sk |Sc | where:
+ * Nc = nonce client (integer)
+ * Ns = nonce server (integer)
+ * Sk = shared key (16 bytes)
+ * Sc = Shared secret (20 bytes)
+ * total: 108 bytes
+ * @parameters: 
+ *              message: the received message
+ *              size (OUT): the size of the received message at first then
+ *                          the size of the returned buffer
+ * @return:
+ *              buffer that contains the reply
+ * NOTE: free of message done here
+ */
+unsigned char* Server::settleReply(unsigned char* message, unsigned int* size) {
+    
+    cliMessage* cm = (cliMessage*) message;
+    nonceType clientNonce = cm -> nonceClient;
+    clientNonce --;
+    free(message);
+    message = (unsigned char*)&clientNonce;
+    return message;
+    
+}
+
+/**
+ * Verify if the received message (after eventually desteganograpy) is compliant
+ * with the specific of the real protocol and with what it's expected from that
+ * client, if the nonce is fresh and so on.
+ * @params:
+ *          sock: socket on which the message has been received
+ *          message: the received message
+ *          size: the size of the message
+ * @return:
+ *          if the message is compliant or not
+ */
+bool Server::verifyReceivedMsg(int sock, unsigned char* message, 
+                               unsigned int size) {
+    
+    unsigned int len = size;
+    nonceType serverNonce;
+    unsigned char* key, *secret;
+    //first verifiy the integrity of the message
+    if( ! k.compareHash((char*)message, &len) ) {
+        
+        cerr<<"altered message STOP!"<<endl;
+        return false;
+        
+    }
+
+    cliMessage* cm = (cliMessage*) message;
+    serverNonce = cm -> nonceServer;
+    
+    if(serverNonce != nonce) {
+        
+        cerr<<"Nonce is different, replay attack probably don't listen to this client"
+            <<endl;
+        return false;
+        
+    }
+    
+    //get the key and the secret
+    key = cm -> key;
+    secret = cm -> secret;
+    
+    if(memcmp(secret, getSecret(sock), hashLen) != 0) {
+        
+        cerr<<"wrong secret received"<<endl;
+        return false;
+        
+    }
+    setKey(sock, key);
+    
+    return true;
+    
+}
+
+
+/** 
+ * Receive a message from a client
+ * NOTE: desteganography and decryptography are done here
+ * @params
+ *          sock: socket of the client to who the server is sending the message
+ *          msg: (OUT) the message received
+ *          len: (OUT) the length of the received message
+ * @returns
+ *          how the receive has gone
+ */
+bool Server::RecvClientMsg(int sock, unsigned char* msg, unsigned int* len) {
+    
+    unsigned int size = *len;
+    unsigned char* decsMsg;
+    
+    //if the receive has gone wrong then return false
+    if( !receiveBuffer(sock, msg, &size) ) {
+        return false;
+    }
+    
+    //check if we have to extract the message from the image
+    if(steganoMode) {
+        
+        steno s = steno();
+        decsMsg = (unsigned char*)s.readMessage(msg, &size);
+        free(msg);
+        msg = decsMsg;
+        
+    }
+    
+    //check if we have already exchanged a protocol with the key
+    if( getEncrypt(sock) == Symmetric ) {
+        
+        decsMsg = k.secretDecrypt(msg, &size, getKey(sock));
+        free(msg);
+        msg = decsMsg;
+        
+    }
+    
+    //check if we have to do a private key decryption
+    if( getEncrypt(sock) == Asymmetric) {
+        
+        decsMsg = k.asymmetricDecrypt("priv.pem", msg, (unsigned int*)&size);
+        free(msg);
+        msg = decsMsg;
+        
+    }
+    
+    *len = size;
+    return true;
+}
+
+/** 
+ * Send a client a message
+ * NOTE: steganography and cryptography are done here
+ * NOTE: the client has only the symmetric key, so we can do just the symmetricÃÂÃÂÃÂÃÂ¹
+ * encryption here
+ * @params
+ *          sock: socket of the client to who the server is sending
+ *          msg: the effective message
+ *          len: the length of the message
+ * @returns
+ *          how the send went 
+ */
+bool Server::SendClientMsg(int sock, unsigned char* msg, unsigned int len) {
+    
+    unsigned int size = len;
+    unsigned char* esMsg;
+    
+    //if encryption is needed then do it
+    if( getEncrypt(sock) ) {
+        
+        esMsg = k.secretEncrypt(msg, &size, getKey(sock));
+        free(msg);
+        msg = esMsg;
+        
+    }
+    
+        //if the flag is UP then do the steganography
+    if(steganoMode == true) {
+        
+        esMsg = s.LSBSteno(msg, &size);
+        //prepare the variables in order to be compliant with the same send
+        free(msg);
+        msg = esMsg;
+        
+    }
+    
+    return sendBuffer(sock, msg, size);
+}
+
+/* 
+ * ADD something
+ * Accept a new connection by a client and add it in the list if it's not
+ * already present in the list
+ */
+void Server::acceptConnection() {
+    
+    clientInfo arrivedClient;
+    int len;
+    
+    //allocate the socket for a new client
+    arrivedClient.clientSock = accept(servSock, (sockaddr*) 
+        &arrivedClient.clientAddr, (socklen_t*)&len);
+    
+    if(arrivedClient.clientSock > servSock)
+        fdmax = arrivedClient.clientSock;
+    
+    FD_SET(arrivedClient.clientSock, &master);
+    arrivedClient.Name = string("\0");
+    //this means that the login has to be done
+    arrivedClient.protoStep = TODOLOGIN;
+    arrivedClient.expMsgLen = 0;
+    arrivedClient.encrypt = None;
+    memset(arrivedClient.secret, 0, 20);
+    
+    //insert the client in the list (last action to do)
+    clientList.push_back(arrivedClient);
+    
+    cout<<"Arrived client "<<arrivedClient.expMsgLen<<endl;
+    
+}
+
+/* 
+ * Changes the public and the private key of the server
+ */
+void Server::changeKey(){
+    k.asymmetricKeyGenerator();
+}
+
+/* 
+ * A simple help display on stdout
+ */
+void Server::displayHelp(){
+    
+    cout<<"Possible commands are:\n"
+        <<"'h' displayHelp\n"
+        <<"'k' change public and private key\n"
+        <<"'s' use of steganography\n"
+        <<"'p' start the protocol\n"
+        <<"'q' quit the program\n"<<endl;
+    
+}
+
+
+/* 
+ * NOTE: possible commands:
+ * 'h': help
+ * 'k': changeKeys
+ */
+void Server::parseKeyCommand(){
+    
+    char cmd;
+    char client[maxClientName];
+    cin>>cmd;
+    bool res = false;
+    
+    //now we have the command in the cmd variable
+    switch(cmd) {
+        case 'h':
+            displayHelp();
+            break;
+        case 'k':
+            changeKey();
+            cout<<"Key changed"<<endl;
+            break;
+        //steganography session
+        case 's':
+            steganoMode = true;
+            cout<<"Steganography Mode set"<<endl;
+            //TODO provide a send to all client to inform them of the steno mode
+            break;
+        case 'p':
+            cin>>client;
+            res = protocol(client);
+            cout<<res<<endl;
+            //TODO: do something if the protocol goes wrong (e.g enhance security)
+            break;
+        case 'q':
+            exit(1);
+            break;
+        default:
+            break;
+    }
+    
+}
+
+/**
+ * Send the requested file if possible otherwise return an error message 
+ * @params:
+ *          text: is the command + filename
+ *          size: (INOUT) at first the size of the message
+ *                      then the size of the file plus its hash
+ * @return
+ *          the message to send to the client
+ * NOTE: the allocated virtual memory for msg.text is deleted
+ */
+unsigned char* Server::prepareFile(char* text, int* len) {
+    
+    unsigned char* defBuffer;
+    
+    //cout<<msg.text<<endl;
+    unsigned int size = 0;
+    //read the content of a file
+    char* buffer = readFile(text, &size);
+    
+    //if a buffer is empty then send the client an error message
+    if(buffer == NULL) {
+        return NULL;
+    }
+    
+    //otherwise compute hash, encrypt the buffer and send it to the client
+    else {
+        
+        //BEGIN HASH COMPUTATION
+        int tmpSize = size;
+        unsigned char* hashBuf = k.generateHash(buffer, &size);
+        size = size + tmpSize; //size of file plus its hash
+        defBuffer = new unsigned char[(size)];
+        //copy at the beginning the buffer
+        memcpy(defBuffer, buffer, tmpSize);
+        //now copy the hash computed
+        memcpy(&defBuffer[tmpSize], (const char*)hashBuf, (size - tmpSize));
+        delete(buffer);
+        //END HASH COMPUTATION
+		
+       *len = size;
+    }
+    return defBuffer;
+    
+}
+
+/**  
+ * Parse the received message and decide the action to perform
+ * NOTE: The message received has already been decrypted and eventually 
+ *          desteganographed   
+ * @params:
+ *          size: dimension of the message
+ *          sock: the socket on which we receive the message
+ *          text: the received message
+ */
+/* NOTE: command issued by the client is 6 bytes long for semplicity*/
+void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
+    
+    //search the client structure in which we have some infos
+    clientInfo cl = searchListSocket(sock);
+    int len;
+    len = size;
+    
+    /*
+     * in the login we receive the client name and the hash of the secret, it's
+     * done in the clear for sake of simplicity, in a real-world example this 
+     * approach may cause any kind of disaster.
+     */ 
+    if(cl.protoStep == TODOLOGIN) {
+        //if the client has issued a login command than the server fills it 
+        if(strncmp("login ", (const char*)text, 6) == 0) {
+            
+            int startSecret;
+            //the client sends its name and the hash of the scret 
+            //along with the command so jump after the command
+            text += 6; 
+            len -= 6;
+            //this is when the hash of secret starts
+            startSecret = len - hashLen;
+            cl.Name = string((char*)text, startSecret);
+            
+            list<clientInfo>::iterator p = clientList.begin();
+            list<clientInfo>::iterator q = clientList.end();
+            
+            //scan the list and update the right client
+            for(; p!=q; p++) {
+                if(p->clientSock == cl.clientSock) {
+                    p->Name = cl.Name;
+                    p->protoStep = DONELOGIN;
+                    memcpy(p -> secret, &text[startSecret], hashLen);
+                }
+            }
+            delete(text);
+            cout<<"Client Name: "<<cl.Name<<endl;
+            SendClientMsg(sock, (unsigned char*)"Login OK\0", strlen("Login OK\0"));
+            
+        }
+        
+        //send an error message
+        else {
+            SendClientMsg(sock, (unsigned char*)"Wrong Request\0", 
+                          strlen("Wrong Request\0"));
+        }
+        
+    }
+    
+    //check if we have received a file request
+    if(strncmp("fireq ", (const char*)text, 6) == 0) {
+        
+        text[len-1] = '\0';
+        len -= 6;
+        text += 6;
+        
+        unsigned char* reqFile = prepareFile((char*)text, &len);
+        
+        if( reqFile == NULL)
+            SendClientMsg(sock, (unsigned char*)"Wrong file req\0", 
+                          strlen("Wrong file req\0"));
+        
+        if( !SendClientMsg(sock, reqFile, len) )
+            cerr<<"error in answering the request of the client"<<endl;
+        else
+            cerr<<"send ok"<<endl;
+    }
+    
+    if(strncmp("steno ", (const char*)text, 6) == 0) {
+        
+        steganoMode = true;
+        
+    }
+    
+    //print the message if it doesn't match any of the operation provided by the server
+    else {
+        
+        cout<<text<<endl;
+        
+    }
+}
+
+/* 
+ * Handles the receiving of events from the outside world
+ */
+void Server::receiveEvents() {
+    
+    unsigned char* buffer = NULL;
+    unsigned int len;
+    //infinite loop to accept events
+    while(1) {
+        
+        FD_SET(0, &read_fds);
+        FD_SET(servSock, &master);
+        cout<<"waiting from typing or other event"<<endl;
+        
+        if(select(fdmax+1, &read_fds, NULL, NULL, NULL)==-1) {
+            cerr<<" error in the select"<<name<<" \n";
+            exit(1);
+        }
+        
+        /* 
+         * roll all the file descriptors and
+         * checks if the file descriptor has been set
+         */ 
+        for(int i = 0; i <= fdmax; i++) {
+            
+            //cout<<"for cycle "<<i<<endl;
+            
+            //this means keyboard event
+            if(FD_ISSET(0, &read_fds)) {
+                
+                //cout<<"input from keyboard"<<endl;
+                parseKeyCommand();
+                
+            }
+            
+            //this means other kind of input
+            if(FD_ISSET(i, &read_fds)) {
+                
+                //checks if there's a new connections
+                if(i == servSock) {
+                    //cout<<"new connection"<<endl;
+                    acceptConnection();
+                }
+                
+                //this means a receiving message
+                //NOTE: i > 2 to avoid the stderr and the stdout 
+                if(i > 2 && i != servSock) {
+                    if( !RecvClientMsg(i, buffer, &len) ) {
+                        cerr<<"Error in receiving the message"<<endl;
+                        break;
+                    }
+                    parseReceivedMessage(i, buffer, len);
+                }
+            break;
+            }
+        }
+    }
+}
+
+/** 
+ * Protocol to exchange the key with the client
+ * @params:
+ *          client: the name of the client with who communicate
+ * @return:
+ *          the exit of the sending
+ */
+bool Server::protocol(char* client) {
+    
+    unsigned char* message = NULL, *tmpMessage = NULL;
+    unsigned int size;
+    
+    //search the client in the list
+    clientInfo cl = searchListByName(client);
+    
+    unsigned int sizeFirstMsg = sizeof(int) + sizeCommand;
+    unsigned char* firstMsg = new unsigned char[sizeFirstMsg];
+    memcpy(firstMsg, "Nonce ", sizeCommand);
+    memcpy(&firstMsg[sizeCommand], (void*)&nonce,sizeof(nonceType));
+    
+    
+    //send to the client a message consisting of the nonce
+    if(SendClientMsg(cl.clientSock, firstMsg, sizeFirstMsg) == false) {
+        
+        cerr<<"error in sending the nonce to the client"<<endl;
+        return false;
+        
+    }
+    
+    //set the asymmetric encryption in the reply from the client
+    setEncrypt(cl.clientSock, Asymmetric);
+    
+    //receive the replay from the client, if necessary the message will be deStegoed
+    if(RecvClientMsg(cl.clientSock, message, &size) == false) {
+        
+        cerr<<"error in receiving the message from the client"<<endl;
+        return false;
+        
+    }
+    
+    /* 
+     * now verify that the received message is compliant with the specifics
+     * in the verify (if all is compliant) the key generated by the client is 
+     * written into a file named after the client
+     */
+    if(verifyReceivedMsg(cl.clientSock, message, size)) {
+        
+        tmpMessage = settleReply(message, &size);
+        free(message);
+        message = k.generateHash(tmpMessage, &size);
+        free(tmpMessage);
+        
+        //from now on all messages will be exchanged through the shared key
+        setEncrypt(cl.clientSock, Symmetric);
+        
+        //send the message encrypted by means of the secret key
+        if(SendClientMsg(cl.clientSock, message, size) == false) {
+            
+            cerr<<"error in sending a message to the client"<<endl;
+            return false;
+            
+        }
+        
+        return true;
+        
+    }
+    
+    else {
+        
+        cerr<<"Wrong replay from the client"<<endl;
+        return false;
+        
+    }
+    
+}
+
+
+/* 
+ * Destroyer of the server
+ */
+Server::~Server(){
+    clientList.clear();
+}
+
+#include "steganography.h"
+
+/*
+ * Function that implements the Least Significant Bit steganography
+ * @params:
+ *          message: the message to embed in the image
+ *          size: (INOUT) at first the size of the message, 
+ *                      then the size of the image with the message embedded
+ * @return: the image with the hidden message
+ * NOTE: the header of the bitmap file is 54 bits 
+ * NOTE: allocated virtual memory
+ * TODO: allow shift of more than one position
+ */
+unsigned char* steno::LSBSteno(unsigned char* message, unsigned int* size) {
+    
+    char* image;
+    unsigned int len;
+    int shift = 1;
+    const unsigned char constantAnd = 0xfe; //constant used int the and
+    image = readFile("image.bmp", &len);
+    
+    int sizeOfInt = sizeof(int);
+    
+    //check if there is enough space in the image to put the message and its length
+    while( ((*size + sizeOfInt) * 8) > (len * shift)) {
+        
+        return NULL;
+        
+    }
+    
+    /* 
+     * now the first thing to do is to skip the header of the image, we treat 
+     * only .bmp images since we have the codec of the colours, we assume 24 bit
+     * used for pixel 
+     */
+    image += 54;
+    int ptr = 0; //used to keep track of the point we reached in the image
+    
+    int sizeIntBit = sizeOfInt * 8;
+    int tmpSize = *size;
+    //write the size of the message
+    for(int i = 0; i < sizeIntBit ; i += shift) {
+        
+        image[i] &= constantAnd;
+        int tmp = tmpSize & 0x01;
+        tmpSize = tmpSize >> shift;
+        //cout << tmpSize<<" "<< tmp<<endl;
+        image[i] |= tmp;
+        ptr ++;
+        
+    }
+    
+    //now we can write the message to hide inside the image
+    for(unsigned int i = 0; i < *size; i++) {
+        
+        //write a byte into 8 bytes of an image
+        unsigned char tmpChar = message[i];
+        for(int j = 0; j < 8; j++) {
+            
+            image[ptr] &= constantAnd;
+            int tmp = tmpChar & 0x01;
+            tmpChar = tmpChar >> shift;
+            image[ptr] |= tmp;
+            ptr++;
+            
+        }
+        
+    }
+    
+    writeFile("hello.bmp", (unsigned char*)image - 54, len);
+    return (unsigned char*)(image - 54);
+    
+}
+
+/* 
+ * Read a message hidden inside an image
+ * @params:
+ *          buffer: the buffer from which extract the message
+ *          size: (OUT) used to return the size of the message
+ * @return:
+ *          the message read from the image
+ * NOTE: 54 bit is the size of the bitmap header
+ * NOTE: allocated memory remember to free it
+ */
+unsigned char* steno::readMessage(unsigned char* buffer,unsigned int* size) {
+    
+    unsigned char* stenoImage = buffer;
+    const unsigned char andBit = 0x01;
+    
+    stenoImage += 54;
+    int ptr = 0;
+    
+    int sizeIntBit = sizeof(int) * 8;
+    unsigned int tmpLen = 0;
+    
+    //read the length of the message previously written
+    for(int i = 0; i < sizeIntBit; i++) {
+        
+        unsigned int leastBit = stenoImage[i] & andBit;
+        tmpLen |= (leastBit << i);
+        ptr++;
+        
+    }
+    
+    cout<<tmpLen<<endl;
+    
+    *size = tmpLen;
+    unsigned char* message = new unsigned char[tmpLen];
+    
+    //read the hidden message present in the image
+    for(unsigned int i = 0; i< tmpLen; i++) {
+        
+        for(int j = 0; j < 8; j++) {
+            
+            unsigned int tmp = stenoImage[ptr] & andBit;
+            message[i] |= (tmp <<j);
+            ptr++;
+            
+        }
+        
+    }
+    
+    //cout<<message<<endl;
+    writeFile("messagehidden.png", (unsigned char*)message,  tmpLen);
+    return message;
+}
+
+#include "util.h"
+
+/* 
+ * Receive a message on the socket sock and returns it
+ * @params: 
+ *          sock the socket on which receive the message
+ * @returns: 
+ *          the received message
+ * 
+ * NOTE: depending on the type of text it's up to the caller to
+ * insert the EOS (end of string) if needed, in this way this
+ * function is more general 
+ */
+message receiveMessage(int sock, sockaddr* addr) {
+    
+    message msg;
+    unsigned int msg_size;
+    socklen_t sizeSockAddr = sizeof(sockaddr);
+    
+    //receive the message size first
+    msg_size = recvfrom(sock, (void*)&msg.len, sizeof(int), MSG_WAITALL, 
+                        addr, &sizeSockAddr);
+    
+    /* compares the received size with the expencted one
+     * if the sizes don't match return an empty message */
+    if(msg_size < sizeof(int)) {
+        cerr<<"error in receiving the size"<<msg.len<<'\n';
+        msg.len = 0;
+        msg.text = new char[1];
+        msg.text[0] = '\0';
+        return msg;
+    }
+    
+    //prepare the buffer and receive the message
+    msg.text = new char[msg.len];
+    msg_size = recvfrom(sock, (void*)msg.text, msg.len, MSG_WAITALL, addr, 
+                        &sizeSockAddr);
+    /* compares the received size with the expencted one
+     * if the sizes don't match return an empty message */
+    
+    if(msg_size < msg.len) {
+        cerr<<"error in receiveing the size\n";
+        msg.len = 0;
+        free(msg.text);
+        msg.text = new char[1];
+        msg.text[0] = '\0';
+        return msg;
+    }
+    
+    //printByte((unsigned char*)msg.text, msg.len);
+    //cout<<"received message "<<msg.text<<endl;
+    
+    return msg;
+}
+
+/* 
+ * Send a message on the socket sock and returns it
+ * @params:
+ *          sock: the socket on which receive the message
+ *          msg: the message
+ * @returns:
+ *          the effectiveness of the operation
+ */
+bool sendMessage(int sock, message msg, sockaddr* addr) {
+    
+    //send the size of the message
+    unsigned int size = sendto(sock, (void*)&msg.len, sizeof(int), 0,
+        addr, sizeof(sockaddr));
+    
+    if(size < sizeof(int)) {
+        cerr<<"error in the len send "<<size<<endl;
+        return false;
+    }
+    
+    //send the effective message
+    size = sendto(sock, (void*)msg.text, msg.len, 0, 
+        addr, sizeof(sockaddr));
+    
+    if(size < msg.len) {
+        cerr<<"error in the text send "<<msg.len<<" "<<size<<endl;
+        cerr<<msg.text<<endl;
+        return false;
+    }
+    
+    //printByte((unsigned char*)msg.text, msg.len);
+    //cout<<"message sent\n";
+    return true;
+    
+}
+
+/*
+ * Write a file with a buffer of a fixed length
+ * @params
+ *          filename: name of the file
+ *          buffer: buffer to write
+ *          dim: dimension of the buffer
+ */
+void writeFile(const char* filename, unsigned char* buffer,unsigned int dim) {
+    
+    FILE* f = fopen(filename, "w");
+    //effective write on the file
+    fwrite(buffer, 1, dim, f);
+    fclose(f);
+    
+}
+
+/* 
+ * Read the content of the file and put in into a string that will be returned
+ * @params
+ *          filename: the name of the file
+ *          n: the length to be read if known in advance
+ * @return
+ *          string: the content of the file
+ */
+unsigned char* readKeyFile(const char* filename, int n) {
+    
+    int x = n;
+    if(x == 0) {
+        //TODO read until the end of the file
+    }
+    unsigned char* buffer = new unsigned char[n];
+    FILE* f = fopen(filename, "r");
+    fread(buffer, 1, n, f);
+    //buffer[n] ='\0';
+    fclose(f);
+    
+    return buffer;
+    
+}
+
+/* 
+ * Print the string byte by byte
+ * @params:
+ *          tmp: the buffer to print
+ *          len: the length of the string
+ */
+void printByte(unsigned char* tmp, int len) {
+    for(int i=0; i<len; i++)
+        fprintf(stdout, "%i ", tmp[i]);
+    cout<<endl;
+}
+
+/* 
+ * Read a whole file
+ * @parmas:
+ *          namefile: the name of the file
+ *          size: OUT parameter used to return the dimension of the buffer
+ * @returns:
+ *          buffer that contains the file 
+ */
+char* readFile(const char* name, unsigned int* size) {
+    
+    unsigned int fsize;
+    char* fbuffer;
+    //open the file a first time to check the length of it
+    FILE* fp=fopen(name, "r");
+    if(fp == NULL)
+        return NULL;
+    fseek(fp, 0, SEEK_END);           //reach the end of it
+    fsize = ftell(fp);
+    fclose(fp);
+    
+    //open the file to read it and put its content into a buffer
+    fp=fopen(name, "r");
+    fbuffer=new char[fsize];
+    //copy of the buffer
+    fread(fbuffer, 1, fsize, fp);
+    *size = fsize;
+    return fbuffer;
+    
+}
+
+/*****************************************************************************
+ * REDEFINITION OF THE BASIC SEND AND RECEIVE PRIMITIVES
+ *****************************************************************************/
+/* 
+ * Redefinition of the sendto function used in C in order to provide less
+ * arguments
+ * @params:
+ *          sock: file descriptor on which send the buffer
+ *          text: pointer to the buffer to send
+ *          len: length of the buffer
+ *          addr: (OPTIONAL) IP address
+ * @return
+ *          true if all the data are sent, false otherwise
+ */
+bool sendBuffer(int sock,unsigned char* text,unsigned int len, sockaddr* addr) {
+    
+    //checking passed parameters
+    if(sock < 0 || len == 0)
+        return false;
+    
+    unsigned int size = len;
+    
+    //at first send the size
+    if(sendto(sock, (void*)&size, sizeof(int), 0, addr, 
+        sizeof(sockaddr)) != sizeof(unsigned int)) {
+        
+        return false;
+        
+    }
+    
+    //now send the message
+    size = sendto(sock, text, len, 0, addr, sizeof(sockaddr));
+    
+    //check the amount of sent data
+    if(len == size) 
+        return true;
+    else
+        return false;
+    
+}
+
+/* 
+ * Redefinition of the recvfrom function
+ * @params:
+ *          sock: file descriptor on which we do the receive
+ *          buf: (OUT) allocated memory area on which put the received buffer
+ *          size: (OUT) the dimension of the received buffer
+ *          addr: (OPTIONAL) IP address from which we receive the data
+ * @return:
+ *          true if all expected data are received, false otherwise
+ * NOTE: allocated memory for buf
+ */
+bool receiveBuffer(int sock, unsigned char* buf,
+                   unsigned int* size, sockaddr* addr){
+    
+    //checking parameters
+    if(sock < 0)
+        return false;
+    
+    socklen_t sizeSockAddr = sizeof(sockaddr);
+    
+    //receive the dimension of the message
+    if(recvfrom(sock, (void*)size, sizeof(int), 0, addr, 
+        &sizeSockAddr) != sizeof(unsigned int)) {
+        
+        return false; //first message received wrong
+        
+    }
+    
+    buf = new unsigned char[*size];
+    
+    //effective receive
+    unsigned int expected = recvfrom(sock, (void*)buf, *size, 
+                            MSG_WAITALL, addr, &sizeSockAddr);
+    
+    //check the amount of received data
+    if(expected == *size)
+        return true;
+    else
+        return false;
+
+}
