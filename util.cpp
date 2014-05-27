@@ -203,8 +203,8 @@ bool sendBuffer(int sock,unsigned char* text,unsigned int len, sockaddr* addr) {
     //now send the message
     size = sendto(sock, text, len, 0, addr, sizeof(sockaddr));
     
-    cout<<"printing:";
-    printByte(text, len);
+    //cout<<"printing:";
+    //printByte(text, len);
     //check the amount of sent data
     if(len == size) 
         return true;
@@ -251,8 +251,8 @@ unsigned char* receiveBuffer(int sock, unsigned int* size, sockaddr* addr){
     
     //check the amount of received data
     if(expected == *size) {
-        cout<<"printing the buffer: ";
-        printByte(tmpBuf, *size);
+        //cout<<"printing the buffer: ";
+        //printByte(tmpBuf, *size);
         return tmpBuf;
     }
     else

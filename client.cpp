@@ -106,6 +106,7 @@ bool Client::sendServMsg(unsigned char* msg, unsigned int len){
     
     unsigned int size = len;
     unsigned char* esMsg;
+    bool result;
     
     //checks if encryption mode is symmetric, then do it before sending
     if( mode == Symmetric ) {
@@ -185,7 +186,6 @@ void Client::parseKeyCommand(char t) {
     const char* login = "login ";
     const char* fireq = "fireq ";
     const char* quit = "mexit ";
-    const char* steganography = "steno ";
     
     //check the command typed by the client
     /* 
@@ -211,8 +211,10 @@ void Client::parseKeyCommand(char t) {
             //request a file
             message = fireq + string(text);
             len = message.length();
-            textMsg = new unsigned char[len];
+            textMsg = new unsigned char[len + 1];
             memcpy(textMsg, message.c_str(), len);
+            textMsg[len] = '\0';
+            len++;
             waitFile = true;
             break;
         //login command
@@ -253,10 +255,7 @@ void Client::parseKeyCommand(char t) {
             break;
         //set the parameters to tell to the server to apply steganography
         case 's':
-            messageToSend = true;
-            textMsg = new unsigned char[sizeCommand];
-            memcpy(textMsg, steganography, sizeCommand);
-            len = (unsigned int)sizeCommand;
+            StegoMode = true;
             break;
         default:
         break;
@@ -270,8 +269,8 @@ void Client::parseKeyCommand(char t) {
         cerr<<"error in sending the message"<<endl;
     
     //free the virtual allocated memory
-    if(textMsg != NULL)
-        delete(textMsg);
+    //if(textMsg != NULL)
+        //delete(textMsg);
     
     if(exitCmd == true) 
         exit(1);
@@ -287,7 +286,6 @@ void Client::parseKeyCommand(char t) {
 void Client::parseRecMessage(unsigned char* text,unsigned int size) {
     
     unsigned int len;
-    unsigned char* buffer;
     
     //first check the message
     if(strcmp ((const char*)text, "wrong file") == 0) {
@@ -296,24 +294,21 @@ void Client::parseRecMessage(unsigned char* text,unsigned int size) {
     }
     
     //wait for a file and decrypts it
-    if(waitFile == true) {
-        Key k = Key(); 
+    if(waitFile == true) { 
         len = size;
-        buffer = k.secretDecrypt((const unsigned char*)text, &len);
         //printByte(buffer, size);
         
         //cout<<"********************\n\n\n**************\n\n"<<endl;
         
-        bool notAltered = k.compareHash((char*)buffer, &len);
+        bool notAltered = k.compareHash((char*)text, &len);
         //this means the hash aren't equal
         if(!notAltered) {
             cerr<<"intruder modified something"<<endl;
             exit(-1);
         }
-        cout<<buffer<<endl;
-        cout<<" *** "<<text<<" *** "<<endl;
-        writeFile("out.pdf", buffer, size);
-        delete(buffer);
+        //cout<<" *** "<<text<<" *** "<<endl;
+        writeFile("out.pdf", text, len);
+        //delete(text);
 
     }
     
@@ -400,7 +395,7 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     nonceType servNonce;
     memcpy(&servNonce, &msg[sizeCommand], sizeof(nonceType));
     unsigned int totMsgSize;
-    unsigned char* totMsg, *tmpMsg1;
+    unsigned char* totMsg, *tmpMsg1, *hashGenerated;
     unsigned int len;
     
     //the client prepares the reply
@@ -413,7 +408,7 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     //FIXME: to optimize modifying something
     unsigned char* tmpKey = readKeyFile("key.txt", (int)keySize); 
     memcpy( cm -> key, tmpKey, keySize);
-    free(tmpKey);
+    delete(tmpKey);
     
     //ask the client to insert the secret
     cout<<"Insert secret"<<endl;
@@ -423,21 +418,12 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     len = strlen((const char*)secret);
     
     //hash the secret because 
-    
-    memcpy(cm -> secret, k.generateHash((char*)secret, &len), hashLen);
+    hashGenerated = k.generateHash((char*)secret, &len);
+    memcpy(cm -> secret, hashGenerated, hashLen);
+    delete(hashGenerated);
     //cm -> padding = generatePadding(&len);
     //set the mode to asymmetric
     mode = Asymmetric;
-    
-    /*
-    //do te preparation of the message
-    cliMessageLength = 2 * sizeof(nonceType) + len + hashLen + keySize; 
-    unsigned char* hashMsg = k.generateHash((unsigned char*)cm, &len);
-    totMsgSize = cliMessageLength + len;
-    totMsg = new unsigned char[totMsgSize];
-    memcpy(totMsg, (void*)cm, cliMessageLength);
-    memcpy(&totMsg[cliMessageLength], hashMsg, len);
-    */
     
     unsigned int tmpLength = 2* sizeof(nonceType) + len + keySize + hashLen;
     unsigned  char* tmpMsg = new unsigned char[tmpLength];
@@ -472,7 +458,7 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
         
     }
     cerr<<"message sent"<<endl;
-    //free(totMsg);
+    //delete(totMsg);
     
     mode = Symmetric;
     
@@ -482,24 +468,26 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     if( (tmpMsg1 = recvServMsg(&totMsgSize) ) == NULL ) {
         
         cerr<<"wrong message received"<<endl;
-        free(totMsg);
+        delete(totMsg);
         return;
         
     }
     cerr<<"message received: "<<totMsgSize<<endl;
     
-    printByte(tmpMsg1, totMsgSize);
+    //printByte(tmpMsg1, totMsgSize);
     
     if( !k.compareHash((char*)tmpMsg1, &totMsgSize) ) {
         
         cerr<<"Alert! message altered"<<endl;
-        free(totMsg);
+        delete(tmpMsg1);
         return;
         
     }
     
     nonceType recNonce;
     memcpy((void*)& recNonce, tmpMsg1, totMsgSize);
+    
+    //delete(tmpMsg1);
     
     //check if the nonce was received correctly
     if( recNonce == (cNonce - 1) ) {

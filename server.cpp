@@ -455,7 +455,7 @@ unsigned char* Server::RecvClientMsg(int sock, unsigned int* len) {
 /** 
  * Send a client a message
  * NOTE: steganography and cryptography are done here
- * NOTE: the client has only the symmetric key, so we can do just the symmetricÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¹
+ * NOTE: the client has only the symmetric key, so we can do just the symmetric
  * encryption here
  * @params
  *          sock: socket of the client to who the server is sending
@@ -574,8 +574,12 @@ void Server::parseKeyCommand(){
         case 'p':
             cin>>client;
             res = protocol(client);
-            cout<<res<<endl;
+            //cout<<res<<endl;
             //TODO: do something if the protocol goes wrong (e.g enhance security)
+            if(res) {
+                cout<<"Protocol executed in a right way!"<<endl;
+                return;
+            }
             break;
         case 'q':
             exit(1);
@@ -598,7 +602,7 @@ void Server::parseKeyCommand(){
  */
 unsigned char* Server::prepareFile(char* text, int* len) {
     
-    unsigned char* defBuffer;
+    unsigned char* defBuffer = NULL;
     
     //cout<<msg.text<<endl;
     unsigned int size = 0;
@@ -607,6 +611,7 @@ unsigned char* Server::prepareFile(char* text, int* len) {
     
     //if a buffer is empty then send the client an error message
     if(buffer == NULL) {
+        cout<<"NULL buffer"<<endl;
         return NULL;
     }
     
@@ -699,7 +704,7 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
     if(strncmp("fireq ", (const char*)text, 6) == 0) {
         
         actionPerformed = true; 
-        text[len-1] = '\0';
+        //text[ len ] = '\0';
         len -= 6;
         text += 6;
         
@@ -755,22 +760,22 @@ void Server::receiveEvents() {
             cerr<<" error in the select"<<name<<" \n";
             exit(1);
         }
-        
+        cout<<"out of the select!"<<endl;
         /* 
          * roll all the file descriptors and
          * checks if the file descriptor has been set
-         */ 
-        for(int i = 0; i <= fdmax; i++) {
+         */
+        //this means keyboard event
+        if(FD_ISSET(0, &read_fds)) {
             
-            //cout<<"for cycle "<<i<<endl;
+            //cout<<"input from keyboard"<<endl;
+            parseKeyCommand();
             
-            //this means keyboard event
-            if(FD_ISSET(0, &read_fds)) {
-                
-                //cout<<"input from keyboard"<<endl;
-                parseKeyCommand();
-                
-            }
+        }
+        //skip the stdin, stdout and stderr
+        for(int i = 3; i <= fdmax; i++) {
+            
+            cout<<"for cycle "<<i<<endl;
             
             //this means other kind of input
             if(FD_ISSET(i, &read_fds)) {
@@ -779,18 +784,21 @@ void Server::receiveEvents() {
                 if(i == servSock) {
                     //cout<<"new connection"<<endl;
                     acceptConnection();
+                    break;
                 }
                 
                 //this means a receiving message
                 //NOTE: i > 2 to avoid the stderr and the stdout 
                 if(i > 2 && i != servSock) {
+                    cout<<"message received"<<endl;
                     if( (buffer = RecvClientMsg(i,&len)) == NULL  ) {
                         cerr<<"Error in receiving the message"<<endl;
                         break;
                     }
                     parseReceivedMessage(i, buffer, len);
                 }
-            break;
+                FD_SET(i, &read_fds);
+                break;
             }
         }
     }
@@ -807,7 +815,7 @@ bool Server::protocol(char* client) {
     
     unsigned char* message = NULL, *tmpMessage = NULL;
     unsigned int size;
-    
+    bool res;
     //search the client in the list
     clientInfo cl = searchListByName(client);
     
@@ -851,7 +859,7 @@ bool Server::protocol(char* client) {
         memcpy(totMsg, tmpMessage, sizeof(nonceType));
         memcpy(&totMsg[sizeof(nonceType)], message, size);
         
-        printByte(totMsg, sizeof(nonceType) + size);
+        //printByte(totMsg, sizeof(nonceType) + size);
         
         //from now on all messages will be exchanged through the shared key
         setEncrypt(cl.clientSock, Symmetric);
@@ -860,20 +868,23 @@ bool Server::protocol(char* client) {
         if(SendClientMsg(cl.clientSock, totMsg, sizeof(nonceType) + size) == false) {
             
             cerr<<"error in sending a message to the client"<<endl;
-            return false;
+            res = false;
             
         }
         
-        return true;
+        res = true;
         
     }
     
     else {
         
         cerr<<"Wrong replay from the client"<<endl;
-        return false;
+        res = false;
         
     }
+    
+    FD_SET(cl.clientSock, &read_fds);
+    return res;
     
 }
 

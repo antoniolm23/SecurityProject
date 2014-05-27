@@ -67,7 +67,9 @@ unsigned char* steno::LSBSteno(unsigned char* message, unsigned int* size) {
         
     }
     
-    writeFile("hello.bmp", (unsigned char*)image - 54, len);
+    *size = len;
+    //cout<<message<<endl;
+    //writeFile("hello.bmp", (unsigned char*)image - 54, len);
     return (unsigned char*)(image - 54);
     
 }
@@ -106,22 +108,24 @@ unsigned char* steno::readMessage(unsigned char* buffer,unsigned int* size) {
     
     *size = tmpLen;
     unsigned char* message = new unsigned char[tmpLen];
+    memset(message, 0, tmpLen);
     
     //read the hidden message present in the image
     for(unsigned int i = 0; i< tmpLen; i++) {
         
         for(int j = 0; j < 8; j++) {
             
-            unsigned int tmp = stenoImage[ptr] & andBit;
-            message[i] |= (tmp <<j);
+            unsigned char tmp = stenoImage[ptr] & andBit;
+            message[i] |= (tmp << j);
             ptr++;
             
         }
         
     }
     
+    //printByte(message, tmpLen);
     //cout<<message<<endl;
-    writeFile("messagehidden.png", (unsigned char*)message,  tmpLen);
+    //writeFile("messagehidden.png", (unsigned char*)message,  tmpLen);
     return message;
 }
 
