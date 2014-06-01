@@ -52,10 +52,9 @@ Client::Client(int port, const char* n, const char* server){
 /** 
  * Receive a message from the server
  * @params:
- *          msg: (OUT) the received message
  *          len: (OUT) the size of the message
  * @return 
- *         wether the message was received correctly or not
+ *         the message received
  */
 unsigned char* Client::recvServMsg(unsigned int* len) {
     
@@ -72,7 +71,7 @@ unsigned char* Client::recvServMsg(unsigned int* len) {
         
         steno s = steno();
         decsMsg = (unsigned char*)s.readMessage(msg, &size);
-        free(msg);
+        delete(msg);
         msg = decsMsg;
         
     }
@@ -81,7 +80,7 @@ unsigned char* Client::recvServMsg(unsigned int* len) {
     if( mode == Symmetric ) {
         
         decsMsg = k.secretDecrypt(msg, &size);
-        free(msg);
+        delete(msg);
         msg = decsMsg;
         
     }
@@ -97,7 +96,7 @@ unsigned char* Client::recvServMsg(unsigned int* len) {
  *          mesg: the text of the message the client sends
  *          len: length of the text
  * @returns
- *          the result of the send
+ *          the outcome of the send
  * NOTE: the size of messages may be sent in the clear since if the adversary 
  * does anything against the communication, then the parties are able to detect 
  * that there's an intruder eavesdropping or manipulating the flow of messages
@@ -106,7 +105,6 @@ bool Client::sendServMsg(unsigned char* msg, unsigned int len){
     
     unsigned int size = len;
     unsigned char* esMsg;
-    bool result;
     
     //checks if encryption mode is symmetric, then do it before sending
     if( mode == Symmetric ) {
@@ -142,10 +140,10 @@ bool Client::sendServMsg(unsigned char* msg, unsigned int len){
 
 void Client::displayHelp() {
     cout<<"h -> shows the help!\n"
-    <<"s -> insert a message to send to the server\n"
-    <<"k -> change the couple of private and public key"
-    <<"c -> insert a command"
-    <<"f -> request a file"
+    <<"s -> set the steganography mode\n"
+    <<"q -> quit\n"
+    <<"f -> request a file\n"
+    <<"c -> a message to be sent to the server\n"
     <<"l -> the client does a login with its name"<<endl;
     /*
      * FIXME: at first the name and passowrd are sent in the clear, 
@@ -157,21 +155,11 @@ void Client::displayHelp() {
  * Parse the command received from the keyboard
  */
 /* 
- * NOTE Possible commands are:
- * h -> help displayHelp
- * s -> new message to be sent to the server
- * k -> change the couple of public and private key
- * c -> insert a command  
- * p -> to start the protocol with the nonce received by the server
- */
-/* 
  * NOTE: commands to be given to the server are 5 bytes plus a space,
  * possibilities are: 
  * fireq: requests a file from the server
  * login: does a login to the server
- * encry: encrypt a message
  * mexit: quit from the server
- * steno: required steganography
  */
 void Client::parseKeyCommand(char t) {
     
@@ -202,6 +190,7 @@ void Client::parseKeyCommand(char t) {
             cin>>text;
             len = strlen(text);
             textMsg = new unsigned char[len + 1];
+            textMsg[len] = '\0';
             memcpy(textMsg, text, len);
             break;
         //file request
@@ -300,6 +289,13 @@ void Client::parseRecMessage(unsigned char* text,unsigned int size) {
         
         //cout<<"********************\n\n\n**************\n\n"<<endl;
         
+        if(strncmp((const char*)text, "Wrong file req\0", size) == 0) {
+            
+            cout<<"Wrong file requested"<<endl;
+            return;
+            
+        }
+        
         bool notAltered = k.compareHash((char*)text, &len);
         //this means the hash aren't equal
         if(!notAltered) {
@@ -308,14 +304,16 @@ void Client::parseRecMessage(unsigned char* text,unsigned int size) {
         }
         //cout<<" *** "<<text<<" *** "<<endl;
         writeFile("out.pdf", text, len);
+        cout<<"File received!"<<endl;
         //delete(text);
 
     }
     
     if(strncmp((const char*)text, "Nonce ", sizeCommand) == 0) {
         
-        protocol(text, size);
-        
+        bool res = protocol(text, size);
+        if(res) 
+            cout<<"right execution of the protocol"<<endl;
     }
     
     delete(text);
@@ -326,7 +324,6 @@ void Client::parseRecMessage(unsigned char* text,unsigned int size) {
  * Receive events from the outside world, server socket or keyboard
  */
 void Client::receiveEvents() {
-    
     
     unsigned char* buffer = NULL;
     unsigned int len;
@@ -389,8 +386,10 @@ void Client::receiveEvents() {
  * @params:
  *          msg: the message received from the server
  *          size: the size of the message
+ * @return
+ *          the outcome of the protocol
  */
-void Client::protocol(unsigned char* msg, unsigned int size) {
+bool Client::protocol(unsigned char* msg, unsigned int size) {
     
     nonceType servNonce;
     memcpy(&servNonce, &msg[sizeCommand], sizeof(nonceType));
@@ -405,14 +404,13 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     cNonce = cm -> nonceClient = generateNonce();
     //generate the key and then read it
     k.secretKeyGenerator();
-    //FIXME: to optimize modifying something
     unsigned char* tmpKey = readKeyFile("key.txt", (int)keySize); 
     memcpy( cm -> key, tmpKey, keySize);
     delete(tmpKey);
     
     //ask the client to insert the secret
     cout<<"Insert secret"<<endl;
-    unsigned char secret[200];
+    unsigned char secret[100];
     cin>>secret;
     
     len = strlen((const char*)secret);
@@ -437,15 +435,11 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     memcpy(totMsg, tmpMsg, tmp);
     unsigned char* hashMsg = k.generateHash((char*)tmpMsg, &tmp); 
     memcpy(&totMsg[tmpLength], hashMsg, hashLen);
-    bool result = k.compareHash((char*)totMsg, &totMsgSize);
-    cout<<result<<endl;
     
     totMsgSize = tmpLength + hashLen;
     //before the sending do all the needed free
-    //free(cm -> padding);
-    free(cm);
-    //free(tmpKey);
-    free(hashMsg);
+    delete(cm);
+    delete(hashMsg);
     
     //cout<<"Printing before the send:"<<endl;
     //printByte(totMsg, totMsgSize);
@@ -454,10 +448,10 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
         
         cerr<<"wrong message sent"<<endl;
         free(totMsg);
-        return;
+        return false;
         
     }
-    cerr<<"message sent"<<endl;
+    //cerr<<"message sent"<<endl;
     //delete(totMsg);
     
     mode = Symmetric;
@@ -468,11 +462,11 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
     if( (tmpMsg1 = recvServMsg(&totMsgSize) ) == NULL ) {
         
         cerr<<"wrong message received"<<endl;
-        delete(totMsg);
-        return;
+        delete(tmpMsg1);
+        mode = None;
+        return false;
         
     }
-    cerr<<"message received: "<<totMsgSize<<endl;
     
     //printByte(tmpMsg1, totMsgSize);
     
@@ -480,20 +474,21 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
         
         cerr<<"Alert! message altered"<<endl;
         delete(tmpMsg1);
-        return;
+        mode = None;
+        return false;
         
     }
     
     nonceType recNonce;
     memcpy((void*)& recNonce, tmpMsg1, totMsgSize);
     
-    //delete(tmpMsg1);
+    delete(tmpMsg1);
     
     //check if the nonce was received correctly
     if( recNonce == (cNonce - 1) ) {
         
         mode = Symmetric;
-        return;
+        return true;
         
     }
     
@@ -501,7 +496,7 @@ void Client::protocol(unsigned char* msg, unsigned int size) {
         
         mode = None;
         cerr<<"Wrong protocol execution"<<endl;
-        return;
+        return false;
         
     }
     

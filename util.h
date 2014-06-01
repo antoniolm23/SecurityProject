@@ -43,6 +43,7 @@ struct clientInfo{
     int protoStep;          //step of the protocol
     int expMsgLen;          //expected message len
     encryptionMode encrypt; //use encryption?
+    bool sMode;             //steganography mode
     unsigned char secret[hashLen];  //hash of the secret of the client
     
 };
@@ -58,28 +59,13 @@ struct cliMessage {
     
 };
 
-//BEGIN UTILITIES FUNCTION USEFUL IN THE CLEAR
-/* 
- * message structure:
- * length of the message, text of the message
- */
-struct message{
-    unsigned int len;
-    char* text;
-};
-//message management (very useful when all runs in the clear)
-message receiveMessage(int, sockaddr* = 0);
-bool sendMessage(int, message, sockaddr* = 0);
-
-//END UTILITIES FUNCTIONS USEFUL IN THE CLEAR
-
 //BEGIN CRYPTO UTILITIES FUNCTIONS
 
 //file management for the key
 unsigned char* readKeyFile(const char*, int);
 
 //file management
-void writeFile(const char*, unsigned char*, unsigned int);
+bool writeFile(const char*, unsigned char*, unsigned int);
 char* readFile(const char*, unsigned int*);
 
 //printbyte
@@ -94,6 +80,5 @@ unsigned char* receiveBuffer(int, unsigned int*, sockaddr* = 0);
 
 //END CRYPTO UTILITIES FUNCTIONS
 
-//function to generate a nonce
+//function to generate a random nonce
 nonceType generateNonce();
-char* generatePadding(unsigned int*);

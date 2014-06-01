@@ -41,14 +41,14 @@ public:
     unsigned char* recvServMsg(unsigned int*);
     
     //securityProtocol
-    bool securityProtocol();
+    //bool securityProtocol();
     
     //receive events from the outside world 
     void receiveEvents();
     
     void parseRecMessage(unsigned char* ,unsigned int);
     
-    void protocol(unsigned char*,unsigned int);
+    bool protocol(unsigned char*,unsigned int);
     void parseKeyCommand(char);
     void displayHelp();
     

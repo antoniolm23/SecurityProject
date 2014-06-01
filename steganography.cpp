@@ -104,7 +104,7 @@ unsigned char* steno::readMessage(unsigned char* buffer,unsigned int* size) {
         
     }
     
-    cout<<tmpLen<<endl;
+    //cout<<tmpLen<<endl;
     
     *size = tmpLen;
     unsigned char* message = new unsigned char[tmpLen];

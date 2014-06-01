@@ -41,14 +41,18 @@ class Server {
     clientInfo searchListByName(char*);
     void removeClient(int);
     int maxSock();
+    bool presentSock(int);
     int getEncrypt(int);
     void setEncrypt(int , encryptionMode);
     void setSecret(int, unsigned char*, int);
+    void setStegoMode(char*, bool);
+    bool getStegoMode(int);
     void setKey(int, unsigned char*);
     const char* getKey(int);
     unsigned char* getSecret(int);
     unsigned char* settleReply(unsigned char*, unsigned int*);
     bool verifyReceivedMsg(int, unsigned char*, unsigned int);
+    void printList();
     
 public:
     

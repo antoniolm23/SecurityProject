@@ -19,28 +19,27 @@ Key::Key() {
  * this is the constructor of the class key, it aims is to generate the key
  * and then store the key in a file
  */
-void Key::secretKeyGenerator() {
+bool Key::secretKeyGenerator() {
     unsigned char* key;
     int b;
-    b=keySize;
-    key=new unsigned char[b];
+    b = keySize;
+    key = new unsigned char[b];
     RAND_bytes(key,b);
-#ifdef _DEBUG
-    for(i=0; i<b; i++) 
-        printbyte(key[i]);
-    //printbyte(key[b-1]);
-    printf("\n");
-#endif
-    writeFile("key.txt", key, b);
+    if ( !writeFile("key.txt", key, b) ) 
+        return false;
+    
     delete(key);
+    return true;
 }
 
-/* 
+/** 
  * Allocate the context for decryption
  * @params:
  *          file: the file from which retrieve the key
+ * @returns:
+ *          the outcome of the allocation
  */
-void Key::contextDecryptAlloc(const char* file) {
+bool Key::contextDecryptAlloc(const char* file) {
     
     int b = keySize;
     ctx = new EVP_CIPHER_CTX;
@@ -49,37 +48,60 @@ void Key::contextDecryptAlloc(const char* file) {
         key = readKeyFile("key.txt", b);
     else
         key = readKeyFile(file, b);
+    
+    if(key == NULL) {
+        
+        cerr<<"NULL key, wrong file"<<endl;
+        return false;
+        
+    }
+    
     EVP_CIPHER_CTX_init(ctx);
     EVP_DecryptInit(ctx, EVP_des_ecb(), NULL, NULL);
     EVP_DecryptInit(ctx, NULL, key, NULL);
     EVP_CIPHER_CTX_set_key_length(ctx,keySize);
+    
     delete(key);
+    
+    return true;
     
 }
 
-/*
+/**
  * Allocate the context for encryption
  * @params: 
  *          file: the name of the file from which retrieve the key
+ * @return:
+ *          the outcome of the allocation
  */
-void Key::contextEncryptAlloc(const char* file) {
+bool Key::contextEncryptAlloc(const char* file) {
     
     int b = keySize;
-    ctx=new EVP_CIPHER_CTX;
+    ctx = new EVP_CIPHER_CTX;
     unsigned char* key;
     if(file == 0)
         key = readKeyFile("key.txt", b);
     else 
         key = readKeyFile(file, b);
+    
+    if(key == NULL) {
+        
+        cerr<<"Key is empty"<<endl;
+        return false;
+        
+    }
+    
     EVP_CIPHER_CTX_init(ctx);
     EVP_EncryptInit(ctx,EVP_des_ecb(),NULL,NULL);
     EVP_EncryptInit(ctx,NULL,key,NULL);
     EVP_CIPHER_CTX_set_key_length(ctx,keySize);
     delete(key);
     
+    return true;
+    
 }
 
-/*
+/**
  * Encripts the buffer and returns the size of the decrypted buffer and 
  * the encrypted buffer
  * @params:
@@ -94,22 +116,24 @@ void Key::contextEncryptAlloc(const char* file) {
 unsigned char* Key::secretEncrypt(const unsigned char* buffer,unsigned int* size, 
                                   const char* file) {
     
-    contextEncryptAlloc(file);
+    if ( !contextEncryptAlloc(file) )
+        return NULL;
     
     //temporary buffer used for encryption
     unsigned char* crbuf = 
         new unsigned char[*size + EVP_CIPHER_CTX_block_size(ctx)];
     int byteo, pos, byteof, tot;               //output byte  
     EVP_EncryptUpdate(ctx, crbuf, &byteo, buffer, *size);
-    pos=byteo;
+    pos = byteo;
     EVP_EncryptFinal(ctx, &crbuf[pos], &byteof);
-    tot=byteo+byteof;
-    *size=tot;
+    tot = byteo+byteof;
+    *size = tot;
     delete (ctx);
+    
     return crbuf;
 }
 
-/* 
+/** 
  * Decrypts the buffer and returns the decrypted buffer along with its size
  * that is represented by the inout parameter size
  * @params:
@@ -124,7 +148,8 @@ unsigned char* Key::secretEncrypt(const unsigned char* buffer,unsigned int* size
 unsigned char* Key::secretDecrypt(const unsigned char* buffer,unsigned int* size,
                                   const char* file) {
     
-    contextDecryptAlloc(file);
+    if( !contextDecryptAlloc(file) )
+        return NULL;
     unsigned char* debuffero =
         new unsigned char [(*size) + EVP_CIPHER_CTX_block_size(ctx)];
     int pos, byteo, byteof, tot;             //output byte
@@ -132,7 +157,7 @@ unsigned char* Key::secretDecrypt(const unsigned char* buffer,unsigned int* size
     pos = byteo;
     EVP_DecryptFinal(ctx, &debuffero[pos], &byteof);
     tot = byteo+byteof;
-    *size=tot;
+    *size = tot;
     delete (ctx);
     return debuffero;
     
@@ -170,12 +195,12 @@ unsigned char* Key::generateHash(char* buffer,unsigned int* size) {
     //end context allocation
     
     //check the correct allocation
-    if(mdctx==NULL) {
-        cerr<<"error1 detected\n";
+    if( mdctx == NULL ) {
+        cerr<<"context not allocated\n";
         exit(-1);
     }
-    if(md==NULL) {
-        cerr<<"error2 detected\n";
+    if(md == NULL) {
+        cerr<<"context not allocated\n";
         exit(-1);
     }
     
@@ -210,7 +235,7 @@ unsigned char* Key::generateHash(char* buffer,unsigned int* size) {
     
 }
 
-/* 
+/** 
  * Compare the given hash with the computed one to state if the message 
  * has been modified by an adversary
  * NOTE: the buffer and the size passed as parameter includes the computed hash
@@ -241,12 +266,12 @@ bool Key::compareHash(char* buffer,unsigned int* size) {
     //end context allocation
     
     //check the correct allocation
-    if(mdctx==NULL) {
-        cerr<<"error1 detected\n";
+    if( mdctx == NULL ) {
+        cerr<<"context not allocated\n";
         exit(-1);
     }
-    if(md==NULL) {
-        cerr<<"error2 detected\n";
+    if(md == NULL) {
+        cerr<<"context not allocated\n";
         exit(-1);
     }
     
@@ -303,29 +328,45 @@ bool Key::compareHash(char* buffer,unsigned int* size) {
  * Generates the private and the public key and put them into 2 files named 
  * respectively priv.pem and pub.pem
  */
-void Key::asymmetricKeyGenerator(){
+bool Key::asymmetricKeyGenerator(){
     
-    const char* file_pem="priv.pem";    //private key file
-    const char* file_pem_pub="pub.pem";//public key file
+    const char* file_pem = "priv.pem";    //private key file
+    const char* file_pem_pub = "pub.pem";//public key file
     FILE* fp;         //file descriptor
     int bits = pubBits;        //bit della chiave
     unsigned long exp=RSA_F4; //exponent to generate prime numbers
     RSA* rsa;
     
-    rsa=RSA_generate_key(bits, exp, NULL, NULL);//generate the key
-    fp=fopen(file_pem, "w");
-    const char* kstr="password";
+    rsa = RSA_generate_key(bits, exp, NULL, NULL);//generate the key
+    
+    if(rsa == NULL) {
+        
+        cerr<<"wrong allocation"<<endl;
+        return false;
+        
+    }
+    
+    fp = fopen(file_pem, "w");
+    if( fp == NULL ) {
+        
+        cerr<<"file not present"<<endl;
+        return false;
+        
+    }
+    
+    const char* kstr = "password";
     PEM_write_RSAPrivateKey(fp, rsa, EVP_des_ede3_cbc(), 
                             (unsigned char*)kstr, strlen(kstr), 
                             NULL, NULL);//write the private key in the file
     fclose(fp);
-    fp=fopen(file_pem_pub, "w");
+    fp = fopen(file_pem_pub, "w");
     PEM_write_RSAPublicKey(fp, rsa);
     fclose(fp);
     RSA_free(rsa);
+    return true;
 }
 
-/*
+/**
  * function that manages rsa public context allocating it and reading 
  * the public key
  * @params: 
@@ -343,7 +384,7 @@ RSA* rsaPub(const char* name) {
     FILE* fp = fopen(name, "r");    //opens the file
     //check if fp exists
     if(fp == NULL) {
-        fprintf(stderr, "doesn't exist the file\n");
+        cerr<<"doesn't exist the file"<<endl;
         return NULL;
     }
     
@@ -351,7 +392,7 @@ RSA* rsaPub(const char* name) {
     rsa = PEM_read_RSAPublicKey(fp, &rsa, NULL, NULL);
     //check if rsa exists
     if(rsa == NULL) {
-        fprintf(stderr, "rsa doesn't exist\n");
+        cerr<<"rsa doesn't exist"<<endl;
         return NULL;
     }
     
@@ -359,7 +400,7 @@ RSA* rsaPub(const char* name) {
     
 }
 
-/*
+/**
  * function that manages rsa private context allocating it and reading 
  * the private key
  * @params: 
@@ -372,6 +413,11 @@ RSA* rsaPriv(const char* name,const char* pwd) {
     RSA* rsa;
     rsa = RSA_new();
     FILE* fp = fopen(name, "r");          //opening of the file
+    if(fp == NULL) {
+        cerr<<"doesn't exist the file"<<endl;
+        return NULL;
+    }
+    
     rsa = PEM_read_RSAPrivateKey(fp, &rsa, NULL, 
                                  (void*)pwd);//read the private key
     fclose(fp);
@@ -384,7 +430,7 @@ RSA* rsaPriv(const char* name,const char* pwd) {
     return rsa;
 }
 
-/* 
+/** 
  * Function that by means of the public key encrypts a message
  * @params:
  *          file: the file in which there's the public key
@@ -394,6 +440,7 @@ RSA* rsaPriv(const char* name,const char* pwd) {
  * @returns: 
  *          the encrypted message
  * NOTE: the length of the message to encrypt MUST BE smaller than the key length
+ * NOTE: the rsa free is done here
  */
 unsigned char* Key::asymmetricEncrypt( const char* file, 
                                        const unsigned char* text, 
@@ -420,13 +467,15 @@ unsigned char* Key::asymmetricEncrypt( const char* file,
     return tmp;
 }
 
-/* 
+/** 
  * Function that by means of the private key decrypts a message
  * @params:
  *          file: the file in which there's the private key
  *          text: message to decrypt
  *          size (INOUT): at first the size of the encrypted message
  *                      then the size of the decrypted message
+ * @return:
+ *          the decrypted message
  */
 unsigned char* Key::asymmetricDecrypt(
     const char* file, const unsigned char* text, unsigned int* size){

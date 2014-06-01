@@ -4,7 +4,7 @@
 int main(int argc, char **argv) {
     cout << "Hello, world!" << std::endl;
     
-    Server s = Server("localhost", 1236);
+    Server s = Server("localhost", 1235);
     s.receiveEvents();
     
     //steno s1 = steno();

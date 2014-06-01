@@ -45,7 +45,7 @@ Server::Server(const char* host, int port) {
     
     clientList = list<clientInfo>();
     
-    nonce = (nonceType)NONCEBEGIN;
+    nonce = generateNonce();
     k = Key();
     s = steno();
     
@@ -285,6 +285,53 @@ int Server::maxSock() {
     
 }
 
+/**
+ * Set the eventually steganography mode for that client
+ * @params:
+ *          name: the name of the client
+ *          sMode: the mkode to set
+ */
+void Server::setStegoMode(char* name, bool sMode) {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    clientInfo t;
+    
+    for(; p != q; p++) {
+
+        if( strcmp(p -> Name.c_str(), name) == 0) {
+            
+            p -> sMode = sMode;
+            
+        }
+    }
+}
+
+/**
+ * Check if the client has the steganography mode set
+ * @return:
+ *          the stegoMode
+ */
+bool Server::getStegoMode(int sock) {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    clientInfo t;
+    
+    for(; p != q; p++) {
+
+        if( p -> clientSock == sock ) {
+            
+            return p -> sMode;
+            
+        }
+    }
+    
+    return false;
+    
+}
+
+
 /* 
  * Remove a client from the list and then eventually re-arrange the file 
  * descriptors in order to not have any errors
@@ -308,7 +355,49 @@ void Server::removeClient(int sock) {
         }
     }
     
+    printList();
+    
 }
+
+/**
+ * Search the socket in the list
+ * @params:
+ *          sock: the number of the socket
+ * @return
+ *          the outcome of the find
+ */
+bool Server::presentSock(int sock) {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    
+    for(; p != q; p++) {
+
+        if(p -> clientSock == sock) {
+            //cout<< p -> Name << " socket present" <<endl;
+            return true;
+            
+        }
+    }
+    
+    return false;
+    
+}
+
+//prints the clients in the list
+void Server::printList() {
+    
+    list<clientInfo>::iterator p = clientList.begin();
+    list<clientInfo>::iterator q = clientList.end();
+    
+    for(; p != q; p++) 
+        
+        cout<<p -> Name << '\t';
+    
+    cout<<endl;
+        
+}
+
 
 /*******************************************************************************
  * PRIVATE FUNCTIONS TO DEAL WITH THE PROTOCOL
@@ -323,7 +412,8 @@ void Server::removeClient(int sock) {
  * Ns = nonce server (integer)
  * Sk = shared key (16 bytes)
  * Sc = Shared secret (20 bytes)
- * total: 108 bytes
+ * Hash of all: 20 bytes
+ * total: 84 bytes
  * @parameters: 
  *              message: the received message
  *              size (OUT): the size of the received message at first then
@@ -421,7 +511,7 @@ unsigned char* Server::RecvClientMsg(int sock, unsigned int* len) {
     }
     
     //check if we have to extract the message from the image
-    if(steganoMode) {
+    if( getStegoMode(sock) ) {
         
         steno s = steno();
         decsMsg = (unsigned char*)s.readMessage(msg, &size);
@@ -479,7 +569,7 @@ bool Server::SendClientMsg(int sock, unsigned char* msg, unsigned int len) {
     }
     
         //if the flag is UP then do the steganography
-    if(steganoMode == true) {
+    if( getStegoMode(sock) )  {
         
         esMsg = s.LSBSteno(msg, &size);
         //prepare the variables in order to be compliant with the same send
@@ -505,7 +595,7 @@ void Server::acceptConnection() {
     arrivedClient.clientSock = accept(servSock, (sockaddr*) 
         &arrivedClient.clientAddr, (socklen_t*)&len);
     
-    if(arrivedClient.clientSock > servSock)
+    if(arrivedClient.clientSock > maxSock())
         fdmax = arrivedClient.clientSock;
     
     FD_SET(arrivedClient.clientSock, &read_fds);
@@ -513,6 +603,7 @@ void Server::acceptConnection() {
     //this means that the login has to be done
     arrivedClient.protoStep = TODOLOGIN;
     arrivedClient.encrypt = None;
+    arrivedClient.sMode = false;
     memset(arrivedClient.secret, 0, 20);
     
     //insert the client in the list (last action to do)
@@ -567,11 +658,15 @@ void Server::parseKeyCommand(){
             break;
         //steganography session
         case 's':
-            steganoMode = true;
+            cout<<"Insert client name"<<endl;
+            cin>>client;
+            setStegoMode(client, true);
+            //steganoMode = true;
             cout<<"Steganography Mode set"<<endl;
             //TODO provide a send to all client to inform them of the steno mode
             break;
         case 'p':
+            cout<<"Insert client name"<<endl;
             cin>>client;
             res = protocol(client);
             //cout<<res<<endl;
@@ -648,6 +743,8 @@ unsigned char* Server::prepareFile(char* text, int* len) {
 /* NOTE: command issued by the client is 6 bytes long for semplicity*/
 void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
     
+    //cerr<<"message received"<<endl;
+    
     //search the client structure in which we have some infos
     clientInfo cl = searchListSocket(sock);
     int len;
@@ -713,7 +810,7 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
         if( reqFile == NULL)
             SendClientMsg(sock, (unsigned char*)"Wrong file req\0", 
                           strlen("Wrong file req\0"));
-        
+            
         if( !SendClientMsg(sock, reqFile, len) )
             cerr<<"error in answering the request of the client"<<endl;
         else
@@ -737,7 +834,7 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
     //print the message if it doesn't match any of the operation provided by the server
     if(actionPerformed == false) {
         
-        cout<<text<<endl;
+        cout<<searchListSocket(sock).Name<<": "<<(char*)text<<' '<<size<<endl;
         
     }
 }
@@ -749,18 +846,22 @@ void Server::receiveEvents() {
     
     unsigned char* buffer = NULL;
     unsigned int len;
+    //file descriptor from which start, we have to skip 
+    int fdStart = 3;
     //infinite loop to accept events
     while(1) {
         
         FD_SET(0, &read_fds);
         FD_SET(servSock, &read_fds);
-        cout<<"waiting from typing or other event"<<endl;
         
-        if(select(fdmax+1, &read_fds, NULL, NULL, NULL)==-1) {
+        //cout<<"waiting for typing or other event"<<endl;
+        
+        if(select(fdmax + 1, &read_fds, NULL, NULL, NULL)==-1) {
             cerr<<" error in the select"<<name<<" \n";
             exit(1);
         }
-        cout<<"out of the select!"<<endl;
+        //cout<<"out of the select!"<<endl;
+        
         /* 
          * roll all the file descriptors and
          * checks if the file descriptor has been set
@@ -773,12 +874,10 @@ void Server::receiveEvents() {
             
         }
         //skip the stdin, stdout and stderr
-        for(int i = 3; i <= fdmax; i++) {
-            
-            cout<<"for cycle "<<i<<endl;
+        for(int i = fdStart; i <= fdmax; i++) {
             
             //this means other kind of input
-            if(FD_ISSET(i, &read_fds)) {
+            if( (presentSock(i) || i == servSock) && FD_ISSET(i, &read_fds)) {
                 
                 //checks if there's a new connections
                 if(i == servSock) {
@@ -790,17 +889,27 @@ void Server::receiveEvents() {
                 //this means a receiving message
                 //NOTE: i > 2 to avoid the stderr and the stdout 
                 if(i > 2 && i != servSock) {
-                    cout<<"message received"<<endl;
+                    //cout<<"message received"<<endl;
                     if( (buffer = RecvClientMsg(i,&len)) == NULL  ) {
                         cerr<<"Error in receiving the message"<<endl;
                         break;
                     }
                     parseReceivedMessage(i, buffer, len);
+                    //i = fdmax + 1;
+                    //break;
                 }
-                FD_SET(i, &read_fds);
+                //i = fdmax + 1;
                 break;
             }
         }
+        //reset the file descriptors
+        for( int i = fdStart; i <= fdmax; i++ ) {
+            
+            if(presentSock(i))
+                FD_SET(i, &read_fds);
+            
+        }
+        //cout<<"out of for"<<endl;
     }
 }
 
@@ -883,7 +992,8 @@ bool Server::protocol(char* client) {
         
     }
     
-    FD_SET(cl.clientSock, &read_fds);
+    //FD_SET(cl.clientSock, &read_fds);
+    nonce = generateNonce();
     return res;
     
 }
