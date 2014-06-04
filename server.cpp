@@ -240,7 +240,6 @@ const char* Server::getKey(int sock) {
  * get the shared secret between the client and the server
  * @params:
  *          sock: to do the search
- *          size: (OUT) size of the shared secret
  * @return:
  *          the shared secret
  */
@@ -309,6 +308,8 @@ void Server::setStegoMode(char* name, bool sMode) {
 
 /**
  * Check if the client has the steganography mode set
+ * @params:
+ *          sock: parameter to do the search
  * @return:
  *          the stegoMode
  */
@@ -332,9 +333,11 @@ bool Server::getStegoMode(int sock) {
 }
 
 
-/* 
+/** 
  * Remove a client from the list and then eventually re-arrange the file 
  * descriptors in order to not have any errors
+ * @params:
+ *          sock: socket of the client to be deleted
  */
 void Server::removeClient(int sock) {
     
@@ -628,7 +631,7 @@ bool Server::SendClientMsg(int sock, unsigned char* msg, unsigned int len,
     return result;
 }
 
-/* 
+/** 
  * Accept a new connection by a client and add it in the list if it's not
  * already present in the list
  */
@@ -659,14 +662,14 @@ void Server::acceptConnection() {
     
 }
 
-/* 
+/** 
  * Changes the public and the private key of the server
  */
 void Server::changeKey(){
     k.asymmetricKeyGenerator();
 }
 
-/* 
+/** 
  * A simple help display on stdout
  */
 void Server::displayHelp(){
@@ -681,7 +684,7 @@ void Server::displayHelp(){
 }
 
 
-/* 
+/** 
  * NOTE: possible commands:
  * 'h': help
  * 'k': changeKeys
@@ -926,7 +929,7 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
     
 }
 
-/* 
+/** 
  * Handles the receiving of events from the outside world
  */
 void Server::receiveEvents() {
@@ -1090,7 +1093,7 @@ bool Server::protocol(char* client) {
 }
 
 
-/* 
+/** 
  * Destroyer of the server
  */
 Server::~Server(){

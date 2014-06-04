@@ -1,6 +1,6 @@
 #include "steganography.h"
 
-/*
+/**
  * Function that implements the Least Significant Bit steganography
  * @params:
  *          message: the message to embed in the image
@@ -74,7 +74,7 @@ unsigned char* steno::LSBSteno(unsigned char* message, unsigned int* size) {
     
 }
 
-/* 
+/** 
  * Read a message hidden inside an image
  * @params:
  *          buffer: the buffer from which extract the message

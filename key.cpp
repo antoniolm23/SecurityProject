@@ -1,7 +1,7 @@
 #include "key.h"
 #include "util.h"
 
-/* 
+/** 
  * Constructor of the class
  */
 Key::Key() {
@@ -15,7 +15,7 @@ Key::Key() {
  * SYMMETRIC ENCRYPTION
  */
 
-/* 
+/** 
  * this is the constructor of the class key, it aims is to generate the key
  * and then store the key in a file
  */
@@ -322,9 +322,11 @@ bool Key::compareHash(char* buffer,unsigned int* size) {
  * ASYMMETRIC ENCRYPTION
  */
 
-/* 
+/** 
  * Generates the private and the public key and put them into 2 files named 
  * respectively priv.pem and pub.pem
+ * @return:
+ *          the outcome of the generation of the key
  */
 bool Key::asymmetricKeyGenerator(){
     

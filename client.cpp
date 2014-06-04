@@ -117,6 +117,7 @@ unsigned char* Client::recvServMsg(unsigned int* len) {
  * @params
  *          mesg: the text of the message the client sends
  *          len: length of the text
+ *          flag: tells if at the end of the send the buffer has to be deleted
  * @returns
  *          the outcome of the send
  * NOTE: the size of messages may be sent in the clear since if the adversary 
@@ -184,6 +185,7 @@ bool Client::sendServMsg(unsigned char* msg, unsigned int len, int flag){
     
 }
 
+//displays the help
 void Client::displayHelp() {
     cout<<"h -> shows the help!\n"
     <<"s -> set the steganography mode\n"
@@ -197,8 +199,10 @@ void Client::displayHelp() {
      */ 
 }
 
-/* 
+/** 
  * Parse the command received from the keyboard
+ * @params:
+ *          the pressed key
  */
 /* 
  * NOTE: commands to be given to the server are 5 bytes plus a space,
@@ -580,7 +584,7 @@ bool Client::protocol(unsigned char* msg, unsigned int size) {
     
 }
 
-
+//destroyer
 Client::~Client(){
 
 }
