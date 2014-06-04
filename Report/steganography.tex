@@ -1,0 +1,11 @@
+\chapter{Steganography}
+
+The steganography is a technique that allows us to hide a message into an image, of every kind of format, of course to be efffective this technique has to be used on the RAW image, so before doing the compression. 
+
+One of the simplest adopted techniques in the literature involves the changing of at most the 3 least significant bits for every bytes that represents the color of a pixel.  
+In some experiments they proved that if we use only the least significant bit, the message is practically undetectable because the human eye isn't so sensitive. 
+Of course things change a little after the compression algorithm, because in this case they try to reduce the amount of informations carried by the image and they use the strong correlation that there is between adjacent pixels, and this correlation reduces of course if we change the values of some pixel. 
+Other techniques exploit the trasformations that need to be done in the compression phase, but in this way the image appears a little more changed.
+Steganography may be used both with or without cryptography, so it's a kind of an external mechanism that allows the parties to communicate in an undetected way. 
+
+Steganography is easily detected by applying lossy compresion algorithms.

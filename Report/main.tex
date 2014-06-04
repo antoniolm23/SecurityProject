@@ -1,0 +1,39 @@
+%latex main
+\documentclass[pdftext, a4paper,14pt]{scrreprt}
+%\documentclass[a4paper,10pt]{scrartcl}
+
+\usepackage[pdftex]{graphicx}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\usepackage{setspace}
+\usepackage[utf8]{inputenc}
+\usepackage[english, italian]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{listings}		%per inserire codice
+\usepackage[usenames]{color}	%per aggiungere i colori
+\usepackage{frontespizio}
+\usepackage[babel]{csquotes}
+\usepackage{biblatex}
+\usepackage{mathtools}
+\onehalfspacing
+\bibliography{Biblio/bibliografia}
+
+\pdfinfo{
+  /Title    (SNCS Project)
+  /Author   (Antonio La Marra)
+  /Creator  (Antonio La Marra)
+  /Producer ()
+  /Subject  ()
+  /Keywords ()
+}
+
+\begin{document}
+
+%\maketitle
+\input{title}
+\tableofcontents
+\input{application}
+\input{steganography}
+\input{protocol}
+
+\end{document} 

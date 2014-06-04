@@ -1,0 +1,572 @@
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Arch Linux) (format=pdflatex 2014.3.17)  30 MAY 2014 21:50
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**protocol.tex
+(./protocol.tex
+LaTeX2e <2011/06/27>
+Babel <3.9h> and hyphenation patterns for 78 languages loaded.
+! Undefined control sequence.
+l.1 \chapter
+            {Protocol}
+The control sequence at the end of the top line
+of your error message was never \def'ed. If you have
+misspelled it (e.g., `\hobx'), type `I' and the correct
+spelling (e.g., `I\hbox'). Otherwise just continue,
+and I'll forget about whatever was undefined.
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.1 \chapter{P
+              rotocol}
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+Missing character: There is no P in font nullfont!
+Missing character: There is no r in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no t in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no c in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no l in font nullfont!
+
+Overfull \hbox (20.0pt too wide) in paragraph at lines 1--2
+[] 
+ []
+
+! Undefined control sequence.
+l.3 \section
+            {Real Protocol}
+The control sequence at the end of the top line
+of your error message was never \def'ed. If you have
+misspelled it (e.g., `\hobx'), type `I' and the correct
+spelling (e.g., `I\hbox'). Otherwise just continue,
+and I'll forget about whatever was undefined.
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.3 \section{R
+              eal Protocol}
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+Missing character: There is no R in font nullfont!
+Missing character: There is no e in font nullfont!
+Missing character: There is no a in font nullfont!
+Missing character: There is no l in font nullfont!
+Missing character: There is no P in font nullfont!
+Missing character: There is no r in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no t in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no c in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no l in font nullfont!
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <7> on input line 6.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <5> on input line 6.
+
+Overfull \hbox (20.0pt too wide) in paragraph at lines 3--9
+[]
+ []
+
+
+Overfull \hbox (21.34717pt too wide) in paragraph at lines 3--9
+\OML/cmm/m/it/10 M\OT1/cmr/m/n/10 1 :
+ []
+
+
+Overfull \hbox (19.48604pt too wide) in paragraph at lines 3--9
+\OML/cmm/m/it/10 S \OMS/cmsy/m/n/10 !
+ []
+
+
+Overfull \hbox (13.41798pt too wide) in paragraph at lines 3--9
+\OML/cmm/m/it/10 C \OT1/cmr/m/n/10 :
+ []
+
+
+Overfull \hbox (12.30904pt too wide) in paragraph at lines 3--9
+\OML/cmm/m/it/10 N[]$ 
+ []
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.10 \noindent
+              
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Overfull \hbox (21.34717pt too wide) in paragraph at lines 10--16
+$\OML/cmm/m/it/10 M\OT1/cmr/m/n/10 2 :
+ []
+
+
+Overfull \hbox (20.64021pt too wide) in paragraph at lines 10--16
+\OML/cmm/m/it/10 C \OMS/cmsy/m/n/10 !
+ []
+
+
+Overfull \hbox (12.26381pt too wide) in paragraph at lines 10--16
+\OML/cmm/m/it/10 S \OT1/cmr/m/n/10 :
+ []
+
+
+Overfull \hbox (67.27994pt too wide) in paragraph at lines 10--16
+\OMS/cmsy/m/n/10 f\OML/cmm/m/it/10 N[]; N[]; C []
+ []
+
+
+Overfull \hbox (48.11234pt too wide) in paragraph at lines 10--16
+\OML/cmm/m/it/10 S; h\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 Q\OT1/cmr/m/n/10 )\OMS/c
+msy/m/n/10 g[]$ 
+ []
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.17 \noindent
+              
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Overfull \hbox (21.34717pt too wide) in paragraph at lines 17--21
+$\OML/cmm/m/it/10 M\OT1/cmr/m/n/10 3 :
+ []
+
+
+Overfull \hbox (19.48604pt too wide) in paragraph at lines 17--21
+\OML/cmm/m/it/10 S \OMS/cmsy/m/n/10 !
+ []
+
+
+Overfull \hbox (12.26381pt too wide) in paragraph at lines 17--21
+\OML/cmm/m/it/10 S \OT1/cmr/m/n/10 :
+ []
+
+
+Overfull \hbox (24.88628pt too wide) in paragraph at lines 17--21
+\OMS/cmsy/m/n/10 f\OML/cmm/m/it/10 N[] \OMS/cmsy/m/n/10 ^^@
+ []
+
+
+Overfull \hbox (24.31738pt too wide) in paragraph at lines 17--21
+\OT1/cmr/m/n/10 1\OMS/cmsy/m/n/10 g[]$ 
+ []
+
+! Undefined control sequence.
+l.22 \section
+             {Assumption}
+The control sequence at the end of the top line
+of your error message was never \def'ed. If you have
+misspelled it (e.g., `\hobx'), type `I' and the correct
+spelling (e.g., `I\hbox'). Otherwise just continue,
+and I'll forget about whatever was undefined.
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.22 \section{A
+               ssumption}
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+Missing character: There is no A in font nullfont!
+Missing character: There is no s in font nullfont!
+Missing character: There is no s in font nullfont!
+Missing character: There is no u in font nullfont!
+Missing character: There is no m in font nullfont!
+Missing character: There is no p in font nullfont!
+Missing character: There is no t in font nullfont!
+Missing character: There is no i in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no n in font nullfont!
+
+Overfull \hbox (20.0pt too wide) in paragraph at lines 22--23
+[] 
+ []
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.24 \noindent
+              
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Overfull \hbox (10.57022pt too wide) in paragraph at lines 24--28
+$[]
+ []
+
+
+Overfull \hbox (6.70831pt too wide) in paragraph at lines 24--28
+\OML/cmm/m/it/10 S$ 
+ []
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.29 \noindent
+              
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Overfull \hbox (20.64021pt too wide) in paragraph at lines 29--33
+$\OML/cmm/m/it/10 C []
+ []
+
+
+Overfull \hbox (6.70831pt too wide) in paragraph at lines 29--33
+\OML/cmm/m/it/10 S$ 
+ []
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.34 \noindent
+              
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Overfull \hbox (20.64021pt too wide) in paragraph at lines 34--38
+$\OML/cmm/m/it/10 C \OMS/cmsy/m/n/10 )
+ []
+
+
+Overfull \hbox (32.8625pt too wide) in paragraph at lines 34--38
+\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 C []
+ []
+
+
+Overfull \hbox (10.59721pt too wide) in paragraph at lines 34--38
+\OML/cmm/m/it/10 S\OT1/cmr/m/n/10 )$ 
+ []
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.39 \noindent
+              
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Overfull \hbox (21.19579pt too wide) in paragraph at lines 39--43
+$\OML/cmm/m/it/10 C \OMS/cmsy/m/n/10 j^^Q
+ []
+
+
+Overfull \hbox (28.21962pt too wide) in paragraph at lines 39--43
+\OT1/cmr/m/n/10 #(\OML/cmm/m/it/10 N[]\OT1/cmr/m/n/10 )$ 
+ []
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.44 \noindent
+              
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Overfull \hbox (20.04161pt too wide) in paragraph at lines 44--48
+$\OML/cmm/m/it/10 S \OMS/cmsy/m/n/10 j^^Q
+ []
+
+
+Overfull \hbox (28.4202pt too wide) in paragraph at lines 44--48
+\OT1/cmr/m/n/10 #(\OML/cmm/m/it/10 N[]\OT1/cmr/m/n/10 )$ 
+ []
+
+! Undefined control sequence.
+l.49 \section
+             {Idealized Protocol}
+The control sequence at the end of the top line
+of your error message was never \def'ed. If you have
+misspelled it (e.g., `\hobx'), type `I' and the correct
+spelling (e.g., `I\hbox'). Otherwise just continue,
+and I'll forget about whatever was undefined.
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.49 \section{I
+               dealized Protocol}
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+Missing character: There is no I in font nullfont!
+Missing character: There is no d in font nullfont!
+Missing character: There is no e in font nullfont!
+Missing character: There is no a in font nullfont!
+Missing character: There is no l in font nullfont!
+Missing character: There is no i in font nullfont!
+Missing character: There is no z in font nullfont!
+Missing character: There is no e in font nullfont!
+Missing character: There is no d in font nullfont!
+Missing character: There is no P in font nullfont!
+Missing character: There is no r in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no t in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no c in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no l in font nullfont!
+
+Overfull \hbox (20.0pt too wide) in paragraph at lines 49--50
+[]
+ []
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.51 \noindent
+              
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Overfull \hbox (21.34717pt too wide) in paragraph at lines 51--55
+$\OML/cmm/m/it/10 M\OT1/cmr/m/n/10 1 :
+ []
+
+
+Overfull \hbox (19.48604pt too wide) in paragraph at lines 51--55
+\OML/cmm/m/it/10 S \OMS/cmsy/m/n/10 !
+ []
+
+
+Overfull \hbox (13.41798pt too wide) in paragraph at lines 51--55
+\OML/cmm/m/it/10 C \OT1/cmr/m/n/10 :
+ []
+
+
+Overfull \hbox (12.30904pt too wide) in paragraph at lines 51--55
+\OML/cmm/m/it/10 N[]$ 
+ []
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.56 \noindent
+              
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Overfull \hbox (21.34717pt too wide) in paragraph at lines 56--62
+$\OML/cmm/m/it/10 M\OT1/cmr/m/n/10 2 :
+ []
+
+
+Overfull \hbox (20.64021pt too wide) in paragraph at lines 56--62
+\OML/cmm/m/it/10 C \OMS/cmsy/m/n/10 !
+ []
+
+
+Overfull \hbox (12.26381pt too wide) in paragraph at lines 56--62
+\OML/cmm/m/it/10 S \OT1/cmr/m/n/10 :
+ []
+
+
+Overfull \hbox (67.27994pt too wide) in paragraph at lines 56--62
+\OMS/cmsy/m/n/10 f\OML/cmm/m/it/10 N[]; N[]; C []
+ []
+
+
+Overfull \hbox (31.23738pt too wide) in paragraph at lines 56--62
+\OML/cmm/m/it/10 S; C []
+ []
+
+
+Overfull \hbox (22.77855pt too wide) in paragraph at lines 56--62
+\OML/cmm/m/it/10 S\OMS/cmsy/m/n/10 g[]$ 
+ []
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.63 \noindent
+              
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Overfull \hbox (21.34717pt too wide) in paragraph at lines 63--67
+$\OML/cmm/m/it/10 M\OT1/cmr/m/n/10 3 :
+ []
+
+
+Overfull \hbox (19.48604pt too wide) in paragraph at lines 63--67
+\OML/cmm/m/it/10 S \OMS/cmsy/m/n/10 !
+ []
+
+
+Overfull \hbox (12.26381pt too wide) in paragraph at lines 63--67
+\OML/cmm/m/it/10 S \OT1/cmr/m/n/10 :
+ []
+
+
+Overfull \hbox (24.88628pt too wide) in paragraph at lines 63--67
+\OMS/cmsy/m/n/10 f\OML/cmm/m/it/10 N[] \OMS/cmsy/m/n/10 ^^@
+ []
+
+
+Overfull \hbox (38.41803pt too wide) in paragraph at lines 63--67
+\OT1/cmr/m/n/10 1\OML/cmm/m/it/10 ; C []
+ []
+
+
+Overfull \hbox (26.02568pt too wide) in paragraph at lines 63--67
+\OML/cmm/m/it/10 S\OMS/cmsy/m/n/10 g[]$ 
+ []
+
+! Undefined control sequence.
+l.68 \section
+             {Demonstration}
+The control sequence at the end of the top line
+of your error message was never \def'ed. If you have
+misspelled it (e.g., `\hobx'), type `I' and the correct
+spelling (e.g., `I\hbox'). Otherwise just continue,
+and I'll forget about whatever was undefined.
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.68 \section{D
+               emonstration}
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+Missing character: There is no D in font nullfont!
+Missing character: There is no e in font nullfont!
+Missing character: There is no m in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no n in font nullfont!
+Missing character: There is no s in font nullfont!
+Missing character: There is no t in font nullfont!
+Missing character: There is no r in font nullfont!
+Missing character: There is no a in font nullfont!
+Missing character: There is no t in font nullfont!
+Missing character: There is no i in font nullfont!
+Missing character: There is no o in font nullfont!
+Missing character: There is no n in font nullfont!
+
+Overfull \hbox (20.0pt too wide) in paragraph at lines 68--69
+[] 
+ []
+
+! Undefined control sequence.
+l.70 \paragraph
+               {After M2}
+The control sequence at the end of the top line
+of your error message was never \def'ed. If you have
+misspelled it (e.g., `\hobx'), type `I' and the correct
+spelling (e.g., `I\hbox'). Otherwise just continue,
+and I'll forget about whatever was undefined.
+
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.70 \paragraph{A
+                 fter M2}
+You're in trouble here.  Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+Missing character: There is no A in font nullfont!
+Missing character: There is no f in font nullfont!
+Missing character: There is no t in font nullfont!
+Missing character: There is no e in font nullfont!
+Missing character: There is no r in font nullfont!
+Missing character: There is no M in font nullfont!
+Missing character: There is no 2 in font nullfont!
+)
+! Emergency stop.
+<*> protocol.tex
+                
+*** (job aborted, no legal \end found)
+
+ 
+Here is how much of TeX's memory you used:
+ 7 strings out of 493308
+ 169 string characters out of 6143616
+ 55419 words of memory out of 5000000
+ 3566 multiletter control sequences out of 15000+600000
+ 3640 words of font info for 14 fonts, out of 8000000 for 9000
+ 957 hyphenation exceptions out of 8191
+ 18i,14n,12p,146b,60s stack positions out of 5000i,500n,10000p,200000b,80000s
+!  ==> Fatal error occurred, no output PDF file produced!

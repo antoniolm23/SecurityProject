@@ -1,0 +1,35 @@
+\boolfalse {citerequest}\boolfalse {citetracker}\boolfalse {pagetracker}\boolfalse {backtracker}\relax 
+\defcounter {refsection}{0}\relax 
+\select@language {italian}
+\defcounter {refsection}{0}\relax 
+\select@language {italian}
+\defcounter {refsection}{0}\relax 
+\contentsline {chapter}{\numberline {1}Application}{3}
+\defcounter {refsection}{0}\relax 
+\contentsline {subsubsection}{\nonumberline Steganography Example}{3}
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {1.1}Detailed description}{3}
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {1.2}List of commands}{4}
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {1.2.1}Client}{4}
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {1.2.2}Server}{4}
+\defcounter {refsection}{0}\relax 
+\contentsline {chapter}{\numberline {2}Steganography}{5}
+\defcounter {refsection}{0}\relax 
+\contentsline {chapter}{\numberline {3}Protocol}{6}
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {3.1}Objectives}{6}
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {3.2}Real Protocol}{6}
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {3.3}Assumption}{6}
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {3.4}Idealized Protocol}{7}
+\defcounter {refsection}{0}\relax 
+\contentsline {section}{\numberline {3.5}Demonstration}{7}
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {3.5.1}After M2}{7}
+\defcounter {refsection}{0}\relax 
+\contentsline {subsection}{\numberline {3.5.2}After M3}{7}

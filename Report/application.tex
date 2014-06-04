@@ -1,0 +1,38 @@
+\chapter{Application}
+
+The application I had in mind is for example the communication between a person (the boss \{ namely the server \}) and a group of people ( employees \{ namely the clients \}) that work in different cities, they share a secret ( password ) and they don't want that their communication is detected by a competitor, that's why further of cryptography I provide also steganography, so that, when needed, they can exchange a simple image to hide their effective communication.
+\subsubsection{Steganography Example}
+Let's think for example of a contest in which both the companies are involved, with steganography what the adversary sees are simple images concerning for example vacations, so he thinks that the other company is unprepared for the contest, while in the same case if he sees encrypted messages, then he may think that the other company is working harder and harder to win the competition. 
+
+\section{Detailed description}
+The boss has a certain number of files and when a client asks for a file the boss sends it.
+It's the boss that starts the protocol and the client states the key. 
+In my application there are some simulated part or assumptions such as: 
+\begin{itemize}
+	\item Login, I don't provide a secure way to do a login from one party to the 	other
+	\item Steganography, instead of exchanging a message to state steganography, each part autonomously set the steganography
+	 mode, I assumed that they do that almost synchronously, for example calling each other on the phone
+	 \item hash: each message or command has been hashed, I assumed that this is a kind of \emph{digitally signed} hash message
+\end{itemize}
+
+\section{List of commands}
+\subsection{Client}
+The list of available commands are:
+\begin{itemize}
+	\item 'f' to request a file
+	\item 's' to set steganography mode
+	\item 'q' to exit the communication
+	\item 'l' to do the login (it MUST be the first step)
+	\item 'c' a non-command message has to be sent to the server
+\end{itemize} 
+
+\subsection{Server}
+The list of available commands are:
+\begin{itemize}
+	\item 'p' starts the protocol
+	\item 'q' quit
+	\item 's' set the steganography mode
+	\item 'k' change the couple public and private key
+\end{itemize}
+
+ 
