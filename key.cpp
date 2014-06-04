@@ -248,8 +248,6 @@ unsigned char* Key::generateHash(char* buffer,unsigned int* size) {
  */
 bool Key::compareHash(char* buffer,unsigned int* size) {
     
-    //printByte((unsigned char*)buffer, *size);
-    
     const char* alg = "sha1";
     int hashSize, rest;
     unsigned char* hashBuf;
@@ -279,17 +277,17 @@ bool Key::compareHash(char* buffer,unsigned int* size) {
     hashSize = EVP_MD_size(md);
     hashBuf = new unsigned char[hashSize];
     
-    int len = *size;
+    unsigned int len = *size;
     
     //since the buffer contains at its end its hash, we need to toggle it
     len -= hashSize;
     
     //prepare the various integer to compute the hash
     rest = len % k;
-    int ptr = 0;
+    unsigned int ptr = 0;
     
     //BEGIN HASH COMPUTATION
-    for(int i = 0; i < len/k; i++) {
+    for(unsigned int i = 0; i < len/k; i++) {
         EVP_DigestUpdate(mdctx, &buffer[ptr], k);
         ptr += k;
     }
@@ -302,11 +300,11 @@ bool Key::compareHash(char* buffer,unsigned int* size) {
     EVP_DigestFinal_ex(mdctx, hashBuf, (unsigned int*)&hashSize);
     //END HASH COMPUTATION
     
-    //cout<<"generated Hashes"<<endl;
-    //printByte((unsigned char*)hashBuf, hashSize);
-    //cout<<endl<<"*****************************"<<endl;
-    //printByte((unsigned char*)&buffer[len], hashSize);
-    //cout<<endl<<"*****************************"<<endl;
+    /*cout<<"generated Hashes"<<endl;
+    printByte((unsigned char*)hashBuf, hashSize);
+    cout<<endl<<"*****************************"<<endl;
+    printByte((unsigned char*)&buffer[len], hashSize);
+    cout<<endl<<"*****************************"<<endl;*/
     
     if(memcmp(hashBuf, &buffer[len], hashSize) == 0)
         result = true;

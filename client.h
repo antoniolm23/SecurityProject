@@ -26,7 +26,6 @@ class Client{
     steno s;
     //tells the client wether if he has to wait a replay or not
     bool waitFile;
-    
     //part related to the server
     sockaddr servAddr;
     
@@ -36,7 +35,7 @@ public:
     Client(int, const char*, const char* );
     
     //send the message to the server
-    bool sendServMsg(unsigned char*, unsigned int);
+    bool sendServMsg(unsigned char*, unsigned int, int = 0);
     //receive message from the server
     unsigned char* recvServMsg(unsigned int*);
     

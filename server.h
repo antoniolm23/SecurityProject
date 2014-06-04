@@ -34,7 +34,7 @@ class Server {
     void parseKeyCommand();
     void changeKey();
     void displayHelp();
-    unsigned char* prepareFile(char*, int*);
+    unsigned char* prepareFile(char*, unsigned int*);
     
     //functions on the list
     clientInfo searchListSocket(int);
@@ -69,7 +69,7 @@ public:
     
     //send and receive message to and from a client
     unsigned char* RecvClientMsg(int, unsigned int*);
-    bool SendClientMsg(int, unsigned char*, unsigned int);
+    bool SendClientMsg(int, unsigned char*, unsigned int, int = 0);
     
     /*parses the received message in order to take the right decision*/
     void parseReceivedMessage(int, unsigned char*, int);

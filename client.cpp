@@ -58,13 +58,35 @@ Client::Client(int port, const char* n, const char* server){
  */
 unsigned char* Client::recvServMsg(unsigned int* len) {
     
-    unsigned int size = *len;
+    unsigned int size, tmpSize;
     unsigned char* decsMsg, *msg;
+    
+    /* 
+     * At first receive the size of the expected message with its hash and then 
+     * compare the received hash with the expected one
+     */
+    size = sizeof(unsigned int) + hashLen;
+    
+    unsigned char* sBuf = receiveBuffer(cliSock, &size);
+    if( sBuf == NULL ) {
+        return NULL;
+    }
+    
+    if( !k.compareHash((char*)sBuf, &size) ) {
+        cerr<<"mesage altered: "<<sBuf<<endl;
+        return NULL;
+    }
+    
+    memcpy( (void*)&tmpSize, (void*)sBuf, sizeof(unsigned int) );
+    //cerr<<"received size of the message "<<tmpSize<<endl;
+    size = tmpSize;
     
     //if the receive has gone wrong then return false
     if( (msg = receiveBuffer(cliSock, &size)) == NULL) {
         return NULL;
     }
+    
+    //cout<<"Received Message: "<<msg<<endl;
     
     //check if we have to extract the message from the image
     if(StegoMode) {
@@ -101,16 +123,19 @@ unsigned char* Client::recvServMsg(unsigned int* len) {
  * does anything against the communication, then the parties are able to detect 
  * that there's an intruder eavesdropping or manipulating the flow of messages
  */
-bool Client::sendServMsg(unsigned char* msg, unsigned int len){
+bool Client::sendServMsg(unsigned char* msg, unsigned int len, int flag){
     
     unsigned int size = len;
+    unsigned int hSize = sizeof(unsigned int) + hashLen;
     unsigned char* esMsg;
+    
+    //cout<<msg<<endl;
     
     //checks if encryption mode is symmetric, then do it before sending
     if( mode == Symmetric ) {
         
         esMsg = k.secretEncrypt(msg, &size);
-        free(msg);
+        delete(msg);
         msg = esMsg;
         
     }
@@ -119,7 +144,7 @@ bool Client::sendServMsg(unsigned char* msg, unsigned int len){
     if( mode == Asymmetric ) {
         
         esMsg = k.asymmetricEncrypt("server/pub.pem", msg, &size);
-        free(msg);
+        delete(msg);
         msg = esMsg;
         
     } 
@@ -129,12 +154,33 @@ bool Client::sendServMsg(unsigned char* msg, unsigned int len){
         
         esMsg = s.LSBSteno(msg, &size);
         //prepare the variables in order to be compliant with the same send
-        free(msg);
+        delete(msg);
         msg = esMsg;
         
     }
     
-    return sendBuffer(cliSock, msg, size);
+    /*
+     * first compute the hash of the size of the message and concatenate it with
+     * the size of the message, this is not the safer procedure of course, I 
+     * assumed that in the case of the size of the message, the hash corresponds
+     * to a digital signature 
+    */
+    unsigned int tmp = sizeof(unsigned int); 
+    unsigned char buf[sizeof(unsigned int) + hashLen];
+    memcpy(buf, (void*)&size, tmp);
+    unsigned char* hashSize = k.generateHash((char*)&size, 
+                                             &tmp);
+    memcpy(&buf[sizeof(unsigned int)], hashSize, hashLen);
+    delete(hashSize);
+    
+    //now I can send the size of the message
+    sendBuffer(cliSock, buf, hSize);
+    
+    bool result = sendBuffer(cliSock, msg, size);
+    if(flag == 1)
+        delete(msg);
+    
+    return result;
     
 }
 
@@ -163,7 +209,7 @@ void Client::displayHelp() {
  */
 void Client::parseKeyCommand(char t) {
     
-    char text[100];
+    char text[100], text1[100];
     char secret[100];
     //command plus the text
     unsigned char* textMsg = NULL, *hs;
@@ -196,7 +242,11 @@ void Client::parseKeyCommand(char t) {
         //file request
         case 'f':
             messageToSend  = true;
+            cout<<"Insert the name of the file"<<endl;
             cin>>text;
+            cout<<"Insert the new name of the file"<<endl;
+            cin>>text1;
+            fileName = string(text1);
             //request a file
             message = fireq + string(text);
             len = message.length();
@@ -254,9 +304,21 @@ void Client::parseKeyCommand(char t) {
     if(!messageToSend)
         return;
     
-    if( !sendServMsg(textMsg, len) )
-        cerr<<"error in sending the message"<<endl;
+    //now compute the hash of the message to send to the server
+    unsigned char* hashMsg, *tmpMsg;
+    len1 = len;
+    hashMsg = k.generateHash((char*)textMsg, &len1);
+    tmpMsg = new unsigned char[len + (unsigned int)hashLen];
+    memcpy(tmpMsg, textMsg, len);
+    memcpy(&tmpMsg[len], hashMsg, (unsigned int)hashLen);
+    len = len + hashLen;
+    delete(textMsg);
+    delete(hashMsg);
+    textMsg = tmpMsg;
     
+    //since in the send the pointers are modified I do the delete there
+    if( !sendServMsg(textMsg, len, 1) )
+        cerr<<"error in sending the message"<<endl;
     //free the virtual allocated memory
     //if(textMsg != NULL)
         //delete(textMsg);
@@ -271,10 +333,17 @@ void Client::parseKeyCommand(char t) {
  * to see if the client can do an assumption on the received message
  * @params:
  *          msg: the received message
+ *          size: the size of the message
  */
 void Client::parseRecMessage(unsigned char* text,unsigned int size) {
     
-    unsigned int len;
+    unsigned int len = size;
+    bool notAltered, actionPerf = false;
+    if( !(notAltered = k.compareHash((char*)text, &len)) ) {
+        //printByte(text, size);
+        cout<<"parse: message altered! "<<len<<" "<<size<<endl;
+        return;
+    }
     
     //first check the message
     if(strcmp ((const char*)text, "wrong file") == 0) {
@@ -284,26 +353,25 @@ void Client::parseRecMessage(unsigned char* text,unsigned int size) {
     
     //wait for a file and decrypts it
     if(waitFile == true) { 
-        len = size;
         //printByte(buffer, size);
-        
+        actionPerf = true;
         //cout<<"********************\n\n\n**************\n\n"<<endl;
         
-        if(strncmp((const char*)text, "Wrong file req\0", size) == 0) {
+        if(strncmp((const char*)text, "Wrong req\0", size) == 0) {
             
             cout<<"Wrong file requested"<<endl;
             return;
             
         }
         
-        bool notAltered = k.compareHash((char*)text, &len);
+        //bool notAltered = k.compareHash((char*)text, &len);
         //this means the hash aren't equal
         if(!notAltered) {
             cerr<<"intruder modified something"<<endl;
             exit(-1);
         }
         //cout<<" *** "<<text<<" *** "<<endl;
-        writeFile("out.pdf", text, len);
+        writeFile(fileName.c_str(), text, len);
         cout<<"File received!"<<endl;
         //delete(text);
 
@@ -311,10 +379,19 @@ void Client::parseRecMessage(unsigned char* text,unsigned int size) {
     
     if(strncmp((const char*)text, "Nonce ", sizeCommand) == 0) {
         
+        actionPerf = true;
         bool res = protocol(text, size);
         if(res) 
             cout<<"right execution of the protocol"<<endl;
     }
+    
+    if( !actionPerf) {
+        
+        text[len] = '\0';
+        cout<<"Message received: "<<text<<endl;
+        
+    }
+        
     
     delete(text);
     
@@ -444,7 +521,7 @@ bool Client::protocol(unsigned char* msg, unsigned int size) {
     //cout<<"Printing before the send:"<<endl;
     //printByte(totMsg, totMsgSize);
     //cout<<endl<<"**************************"<<endl;
-    if( !sendServMsg(totMsg, totMsgSize) ) {
+    if( !sendServMsg(totMsg, totMsgSize, 1) ) {
         
         cerr<<"wrong message sent"<<endl;
         free(totMsg);

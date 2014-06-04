@@ -427,7 +427,7 @@ unsigned char* Server::settleReply(unsigned char* message, unsigned int* size) {
     cliMessage* cm = (cliMessage*) message;
     nonceType clientNonce = cm -> nonceClient;
     clientNonce --;
-    free(message);
+    delete(message);
     unsigned char* tmp = new unsigned char[sizeof(nonceType)];
     memcpy(tmp, (void*)&clientNonce, sizeof(nonceType));
     //message = (unsigned char*)&clientNonce;
@@ -502,20 +502,42 @@ bool Server::verifyReceivedMsg(int sock, unsigned char* message,
  */
 unsigned char* Server::RecvClientMsg(int sock, unsigned int* len) {
     
-    unsigned int size = *len;
+    unsigned int size, tmpSize;
     unsigned char* decsMsg, *msg;
+    
+    /* 
+     * At first receive the size of the expected message with its hash and then 
+     * compare the received hash with the expected one
+     */
+    size = sizeof(unsigned int) + hashLen;
+    
+    unsigned char* sBuf = receiveBuffer(sock, &size);
+    if( sBuf == NULL ) {
+        return NULL;
+    }
+    
+    if( k.compareHash((char*)sBuf, &size) == false ) {
+        cerr<<"mesage altered "<<sBuf<<endl;
+        return NULL;
+    }
+    
+    memcpy( (void*)&tmpSize, (void*)sBuf, sizeof(unsigned int) );
+    //cerr<<"receive size of the message "<<tmpSize<<endl;
+    size = tmpSize;
     
     //if the receive has gone wrong then return false
     if( (msg = receiveBuffer(sock, &size)) == NULL ) {
         return NULL;
     }
     
+    //cout<<msg<<endl;
+    
     //check if we have to extract the message from the image
     if( getStegoMode(sock) ) {
         
         steno s = steno();
         decsMsg = (unsigned char*)s.readMessage(msg, &size);
-        free(msg);
+        delete(msg);
         msg = decsMsg;
         
     }
@@ -524,7 +546,7 @@ unsigned char* Server::RecvClientMsg(int sock, unsigned int* len) {
     if( getEncrypt(sock) == Symmetric ) {
         
         decsMsg = k.secretDecrypt(msg, &size, getKey(sock));
-        free(msg);
+        delete(msg);
         msg = decsMsg;
         
     }
@@ -533,7 +555,7 @@ unsigned char* Server::RecvClientMsg(int sock, unsigned int* len) {
     if( getEncrypt(sock) == Asymmetric) {
         
         decsMsg = k.asymmetricDecrypt("priv.pem", msg, (unsigned int*)&size);
-        free(msg);
+        delete(msg);
         msg = decsMsg;
         
     }
@@ -554,16 +576,20 @@ unsigned char* Server::RecvClientMsg(int sock, unsigned int* len) {
  * @returns
  *          how the send went 
  */
-bool Server::SendClientMsg(int sock, unsigned char* msg, unsigned int len) {
+bool Server::SendClientMsg(int sock, unsigned char* msg, unsigned int len,
+                           int flag) {
     
     unsigned int size = len;
     unsigned char* esMsg;
+    unsigned int hSize = sizeof(unsigned int) + hashLen;
+    
+    //compute the hash of the message
     
     //if encryption is needed then do it
     if( getEncrypt(sock) ) {
         
         esMsg = k.secretEncrypt(msg, &size, getKey(sock));
-        free(msg);
+        delete(msg);
         msg = esMsg;
         
     }
@@ -573,16 +599,36 @@ bool Server::SendClientMsg(int sock, unsigned char* msg, unsigned int len) {
         
         esMsg = s.LSBSteno(msg, &size);
         //prepare the variables in order to be compliant with the same send
-        free(msg);
+        delete(msg);
         msg = esMsg;
         
     }
     
-    return sendBuffer(sock, msg, size);
+    /*
+     * first compute the hash of the size of the message and concatenate it with
+     * the size of the message, this is not the safer procedure of course, I 
+     * assumed that in the case of the size of the message, the hash corresponds
+     * to a digital signature 
+    */
+    //cerr<<"send size of the message "<<size<<endl;
+    unsigned int tmp = sizeof(unsigned int); 
+    unsigned char buf[sizeof(unsigned int) + hashLen];
+    memcpy(buf, (void*)&size, sizeof(unsigned int));
+    unsigned char* hashSize = k.generateHash((char*)&size, 
+                                             &tmp);
+    memcpy(&buf[sizeof(unsigned int)], hashSize, hashLen);
+    delete(hashSize);
+    
+    //now I can send the size of the message
+    sendBuffer(sock, buf, hSize);
+    
+    bool result = sendBuffer(sock, msg, size);
+    if(flag == 1)
+        delete(msg);
+    return result;
 }
 
 /* 
- * ADD something
  * Accept a new connection by a client and add it in the list if it's not
  * already present in the list
  */
@@ -695,7 +741,7 @@ void Server::parseKeyCommand(){
  *          the message to send to the client
  * NOTE: the allocated virtual memory for msg.text is deleted
  */
-unsigned char* Server::prepareFile(char* text, int* len) {
+unsigned char* Server::prepareFile(char* text,unsigned int* len) {
     
     unsigned char* defBuffer = NULL;
     
@@ -723,6 +769,7 @@ unsigned char* Server::prepareFile(char* text, int* len) {
         //now copy the hash computed
         memcpy(&defBuffer[tmpSize], (const char*)hashBuf, (size - tmpSize));
         delete(buffer);
+        delete(hashBuf);
         //END HASH COMPUTATION
 		
        *len = size;
@@ -743,13 +790,23 @@ unsigned char* Server::prepareFile(char* text, int* len) {
 /* NOTE: command issued by the client is 6 bytes long for semplicity*/
 void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
     
-    //cerr<<"message received"<<endl;
+    const char* login = "Login OK";
+    const char* wreq = "Wrong request\0";
+    char* respMessage;
+    unsigned char* hashComp;
+    bool reply = false;
     
     //search the client structure in which we have some infos
     clientInfo cl = searchListSocket(sock);
-    int len;
-    len = size;
     bool actionPerformed = false;
+    unsigned int len = (unsigned int)size;
+    unsigned int len1;
+    
+    //do a comparison of the hashes in order to check if the message was modified
+    if( !k.compareHash((char*)text, &len) ) {
+        cout<<"message altered!"<<endl;
+        return;
+    }
     
     /*
      * in the login we receive the client name and the hash of the secret, it's
@@ -783,7 +840,15 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
             }
             delete(text - 6);
             cout<<"Client Name: "<<cl.Name<<endl;
-            SendClientMsg(sock, (unsigned char*)"Login OK\0", strlen("Login OK\0"));
+            len1 = strlen(login);
+            len = len1;
+            respMessage = new char[ len + hashLen ];
+            memcpy( respMessage, login, len );
+            hashComp = (unsigned char*)k.generateHash( (char*)login, &len1 );
+            memcpy( &respMessage[len], 
+                    hashComp, (unsigned int) hashLen );
+            reply = true;
+            len = strlen(login) + hashLen;
             
         }
         
@@ -791,8 +856,14 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
         else {
             
             actionPerformed = true;
-            SendClientMsg(sock, (unsigned char*)"Wrong Request\0", 
-                          strlen("Wrong Request\0"));
+            len = strlen(wreq);
+            respMessage = new char[ len + hashLen ];
+            hashComp = k.generateHash( (char*)wreq, &len );
+            memcpy( respMessage, wreq, strlen(wreq) );
+            memcpy( (void*)&respMessage[len], hashComp, (unsigned int) hashLen );
+            reply = true;
+            len = strlen(wreq) + hashLen;
+            
         }
         
     }
@@ -801,27 +872,30 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
     if(strncmp("fireq ", (const char*)text, 6) == 0) {
         
         actionPerformed = true; 
-        //text[ len ] = '\0';
         len -= 6;
         text += 6;
         
         unsigned char* reqFile = prepareFile((char*)text, &len);
         
-        if( reqFile == NULL)
-            SendClientMsg(sock, (unsigned char*)"Wrong file req\0", 
-                          strlen("Wrong file req\0"));
+        if( reqFile == NULL) {
             
-        if( !SendClientMsg(sock, reqFile, len) )
-            cerr<<"error in answering the request of the client"<<endl;
-        else
-            cerr<<"send ok"<<endl;
-    }
-    
-    if(strncmp("steno ", (const char*)text, 6) == 0) {
+            len = strlen(wreq);
+            respMessage = new char[ len + hashLen ];
+            hashComp = k.generateHash( (char*)wreq, &len );
+            memcpy( respMessage, wreq, strlen(wreq) );
+            memcpy( (void*)&respMessage[strlen(wreq)], 
+                    hashComp, (unsigned int) hashLen );
+            len = strlen(wreq) + hashLen;
+            reply = true;
+            
+        }
         
-        actionPerformed = true;
-        steganoMode = true;
-        
+        else{
+            if( !SendClientMsg(sock, reqFile, len) )
+                cerr<<"error in answering the request of the client"<<endl;
+            else
+                cerr<<"send ok"<<endl;
+        }
     }
     
     if(strncmp("mexit ", (const char*)text, 6) == 0) {
@@ -833,10 +907,23 @@ void Server::parseReceivedMessage(int sock, unsigned char* text, int size) {
     
     //print the message if it doesn't match any of the operation provided by the server
     if(actionPerformed == false) {
-        
-        cout<<searchListSocket(sock).Name<<": "<<(char*)text<<' '<<size<<endl;
+        text[len] = '\0';
+        cout<<searchListSocket(sock).Name<<": "<<(char*)text<<endl;
         
     }
+    
+    if( reply ) {
+        //cout<<"reply "<<respMessage<<endl;
+        if( !SendClientMsg(sock, (unsigned char*)respMessage, len) ){
+            cerr<<"error in sending the reply";
+            delete(respMessage);
+            delete(hashComp);
+        }
+        //cout<<"resp MSG: "<<(char*)respMessage<<" "<<len<<endl;
+        delete(respMessage);
+        delete(hashComp);
+    }
+    
 }
 
 /* 
@@ -923,16 +1010,20 @@ void Server::receiveEvents() {
 bool Server::protocol(char* client) {
     
     unsigned char* message = NULL, *tmpMessage = NULL;
-    unsigned int size;
+    unsigned char* tmpHash;
+    unsigned int size, tmpSize;
     bool res;
     //search the client in the list
     clientInfo cl = searchListByName(client);
     
-    unsigned int sizeFirstMsg = sizeof(nonceType) + sizeCommand;
-    unsigned char* firstMsg = new unsigned char[sizeFirstMsg];
+    unsigned int sizeFirstMsg = tmpSize = sizeof(nonceType) + sizeCommand;
+    unsigned char* firstMsg = new unsigned char[sizeFirstMsg + hashLen];
     memcpy(firstMsg, "Nonce ", sizeCommand);
     memcpy(&firstMsg[sizeCommand], (void*)&nonce,sizeof(nonceType));
-    
+    tmpHash = k.generateHash((char*)firstMsg, &tmpSize);
+    memcpy(&firstMsg[sizeFirstMsg], tmpHash, hashLen );
+    delete(tmpHash);
+    sizeFirstMsg = sizeFirstMsg + hashLen;
     
     //send to the client a message consisting of the nonce
     if(SendClientMsg(cl.clientSock, firstMsg, sizeFirstMsg) == false) {

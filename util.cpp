@@ -127,13 +127,13 @@ bool sendBuffer(int sock, unsigned char* text, unsigned int len,
     
     unsigned int size = len;
     
-    //at first send the size
+    /*//at first send the size
     if(sendto(sock, (void*)&size, sizeof(unsigned int), 0, addr, 
         sizeof(sockaddr)) != sizeof(unsigned int)) {
         
         return false;
         
-    }
+    }*/
     
     //now send the message
     size = sendto(sock, text, len, 0, addr, sizeof(sockaddr));
@@ -168,7 +168,7 @@ unsigned char* receiveBuffer(int sock, unsigned int* size, sockaddr* addr){
     socklen_t sizeSockAddr = sizeof(sockaddr);
     unsigned char* tmpBuf;
     
-    //receive the dimension of the message
+    /*//receive the dimension of the message
     if(recvfrom(sock, (void*)&len, sizeof(int), 0, addr, 
         &sizeSockAddr) != sizeof(unsigned int)) {
         
@@ -177,6 +177,7 @@ unsigned char* receiveBuffer(int sock, unsigned int* size, sockaddr* addr){
     }
     
     *size = len;
+    */
     tmpBuf = new unsigned char[*size];
     
     //effective receive
