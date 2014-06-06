@@ -330,8 +330,8 @@ bool Key::compareHash(char* buffer,unsigned int* size) {
  */
 bool Key::asymmetricKeyGenerator(){
     
-    const char* file_pem = "priv.pem";    //private key file
-    const char* file_pem_pub = "pub.pem";//public key file
+    const char* file_pem = "server/priv.pem";    //private key file
+    const char* file_pem_pub = "server/pub.pem";//public key file
     FILE* fp;         //file descriptor
     int bits = pubBits;        //bit della chiave
     unsigned long exp=RSA_F4; //exponent to generate prime numbers

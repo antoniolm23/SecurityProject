@@ -164,7 +164,6 @@ unsigned char* receiveBuffer(int sock, unsigned int* size, sockaddr* addr){
     if(sock < 0)
         return NULL;
     
-    unsigned int len = *size;
     socklen_t sizeSockAddr = sizeof(sockaddr);
     unsigned char* tmpBuf;
     

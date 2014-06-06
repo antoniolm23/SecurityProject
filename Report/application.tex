@@ -1,6 +1,6 @@
 \chapter{Application}
 
-The application I had in mind is for example the communication between a person (the boss \{ namely the server \}) and a group of people ( employees \{ namely the clients \}) that work in different cities, they share a secret ( password ) and they don't want that their communication is detected by a competitor, that's why further of cryptography I provide also steganography, so that, when needed, they can exchange a simple image to hide their effective communication.
+The application I had in mind is for example the communication between a person (the boss \{ namely the server \}) and a group of people ( employees \{ namely the clients \}) that work in different cities, they share a secret ( password ) and they don't want that their communication is detected by a competitor, that's why besides cryptography I provide also steganography, so that, when needed, they can exchange a simple image to hide their effective communication.
 \subsubsection{Steganography Example}
 Let's think for example of a contest in which both the companies are involved, with steganography what the adversary sees are simple images concerning for example vacations, so he thinks that the other company is unprepared for the contest, while in the same case if he sees encrypted messages, then he may think that the other company is working harder and harder to win the competition. 
 
@@ -12,7 +12,7 @@ In my application there are some simulated part or assumptions such as:
 	\item Login, I don't provide a secure way to do a login from one party to the 	other
 	\item Steganography, instead of exchanging a message to state steganography, each part autonomously set the steganography
 	 mode, I assumed that they do that almost synchronously, for example calling each other on the phone
-	 \item hash: each message or command has been hashed, I assumed that this is a kind of \emph{digitally signed} hash message
+	 \item hash: each message or command and the size of the messages have been hashed, I assumed that this is a \emph{digital signature} for the message.
 \end{itemize}
 
 \section{List of commands}
@@ -35,4 +35,5 @@ The list of available commands are:
 	\item 'k' change the couple public and private key
 \end{itemize}
 
- 
+The server automatically starts at "127.0.0.1", at a predefined port, the same holds also for the client, but in this case we have to provide a name for the client.
+So basically, to start the server we just need to run the command \emph{ ./security }, while to run the client the command is \emph{ ./client name}.

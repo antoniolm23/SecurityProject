@@ -2,9 +2,9 @@
 
 //main client
 int main(int argc, char **argv) {
-    cout << "Hello, world!" << std::endl;
+    cout << "Client starting" << std::endl;
     
-    Client c = Client(1235, argv[1], "localhost");
+    Client c = Client(1234, argv[1], "localhost");
     c.receiveEvents();
     
     return 0;

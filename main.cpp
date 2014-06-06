@@ -2,8 +2,8 @@
 
 //main server
 int main(int argc, char **argv) {
-    cout << "Hello, world!" << std::endl;
-    Server s = Server("localhost", 1235);
+    cout << "Server starting" << std::endl;
+    Server s = Server("localhost", 1234);
     s.receiveEvents();
     
     //steno s1 = steno();
